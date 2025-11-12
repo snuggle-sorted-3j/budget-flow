@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
 
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/budget_flow"
+    # Match env.py format (remove +psycopg2)
+    DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/budget_flow"
 
     JWT_SECRET: str = "changeme"
     JWT_ALGORITHM: str = "HS256"
