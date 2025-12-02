@@ -25,7 +25,8 @@ target_metadata = Base.metadata
 
 def get_url():
     """Get database URL from environment or docker-compose."""
-    return os.getenv("DATABASE_URL", "postgresql://postgres:password@postgres:5432/budget_flow")
+    db_password = os.getenv("DB_PASSWORD", "password")  # fallback for local dev
+    return f"postgresql://postgres:{db_password}@postgres:5432/budget_flow"
 
 
 def run_migrations_offline() -> None:

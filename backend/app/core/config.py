@@ -1,7 +1,7 @@
-from typing import List
-
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from typing import List
+import os
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
@@ -12,15 +12,13 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
 
-    # Match env.py format (remove +psycopg2)
-    DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/budget_flow"
-
-    JWT_SECRET: str = "changeme"
+    # Read from environment - NO hardcoded password
+    DATABASE_URL: str
+    
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
 
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:8050"]
 
-
 settings = Settings()
-
