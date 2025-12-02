@@ -62,3 +62,4 @@ class IncomeEntry(Base):
     )
 
 
+
