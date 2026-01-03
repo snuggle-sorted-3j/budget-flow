@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "BudgetFlow"
     DEBUG: bool = False
     API_V1_STR: str = "/api/v1"
+    VERSION: str = "0.1.0"
+    ENVIRONMENT: str = "development"
 
     # Read from environment - NO hardcoded password
     DATABASE_URL: str
