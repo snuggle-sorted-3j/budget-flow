@@ -4,8 +4,9 @@ alembic
 psycopg2-binary
 pydantic
 pydantic-settings
-python-jose
+python-jose[cryptography]
 passlib
-bcrypt
+bcrypt==3.2.0
 uvicorn
-
+email-validator
+python-multipart
