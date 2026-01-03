@@ -24,6 +24,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      DB_PASSWORD: ${DB_PASSWORD}
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/budget_flow
       JWT_SECRET: ${JWT_SECRET}
       JWT_ALGORITHM: HS256
