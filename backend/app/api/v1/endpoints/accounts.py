@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.crud import account as crud_account
+from app.crud import currency as crud_currency
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountResponse
 
@@ -22,9 +23,13 @@ def create_account(
     """
     Create a new account.
     """
-    # Ensure currency exists and belongs to user or is default?
-    # For now assuming currency_id is valid or DB will error. 
-    # Ideal: Check currency ownership/validity.
+    # Ensure currency exists and belongs to user
+    currency = crud_currency.get_currency(db=db, user_id=current_user.id, currency_id=account_in.currency_id)
+    if not currency:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Currency not found or access denied",
+        )
     
     account = crud_account.create_account(db=db, user_id=current_user.id, data=account_in)
     return account
