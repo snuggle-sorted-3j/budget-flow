@@ -3,8 +3,10 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output
 
 from callbacks.auth_callbacks import register_auth_callbacks
+from callbacks.period_callbacks import register_period_callbacks
 from layouts.login import create_login_layout
 from layouts.dashboard import create_dashboard_layout
+from tabs.tab1_period_setup import create_period_tab_layout
 
 # Initialize Dash app
 app = dash.Dash(
@@ -31,6 +33,7 @@ app.layout = html.Div(
 
 # Register callbacks
 register_auth_callbacks(app)
+register_period_callbacks(app)
 
 
 # Routing callback
@@ -64,6 +67,22 @@ def display_page(pathname, session_data, user_data):
     
     # Default: redirect to login
     return create_login_layout()
+
+
+# Tab switching callback
+@app.callback(
+    Output("dashboard-content", "children"),
+    [Input("dashboard-tabs", "value")],
+)
+def render_tab_content(active_tab):
+    """Render content based on selected tab."""
+    if active_tab == "tab-periods":
+        return create_period_tab_layout()
+    elif active_tab == "tab-transactions":
+        return html.Div("Income & Expenses tab - Coming soon!", className="p-4")
+    elif active_tab == "tab-reconciliation":
+        return html.Div("Reconciliation tab - Coming soon!", className="p-4")
+    return html.Div("Select a tab", className="p-4")
 
 
 if __name__ == "__main__":

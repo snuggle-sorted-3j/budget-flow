@@ -84,7 +84,33 @@ def create_dashboard_layout(user_email: str = "User"):
     )
 
     content = html.Div(
-        id="dashboard-content",
+        [
+            dcc.Tabs(
+                id="dashboard-tabs",
+                value="tab-periods",
+                children=[
+                    dcc.Tab(
+                        label="Period Setup",
+                        value="tab-periods",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                    ),
+                    dcc.Tab(
+                        label="Income & Expenses",
+                        value="tab-transactions",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                    ),
+                    dcc.Tab(
+                        label="Reconciliation",
+                        value="tab-reconciliation",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                    ),
+                ],
+            ),
+            html.Div(id="dashboard-content", style={"padding": "20px"}),
+        ],
         style={"marginLeft": "250px", "padding": "20px"},
     )
 
