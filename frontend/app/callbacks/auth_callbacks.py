@@ -32,10 +32,10 @@ def register_auth_callbacks(app):
         if not email or not password:
             return None, "Please enter both email and password", True, "/"
 
-        # Call login endpoint
+        # Call login endpoint (JSON version)
         response = api_client.post(
-            "/auth/login",
-            {"username": email, "password": password}
+            "/auth/login/json",
+            {"email": email, "password": password}
         )
 
         if "error" in response:
@@ -46,6 +46,41 @@ def register_auth_callbacks(app):
             return {"token": token}, "", False, "/dashboard"
 
         return None, "Invalid response from server", True, "/"
+
+    @app.callback(
+        [
+            Output("register-message", "children"),
+            Output("register-message", "color"),
+            Output("register-message", "is_open"),
+            Output("url", "pathname", allow_duplicate=True),
+        ],
+        [Input("register-button", "n_clicks")],
+        [
+            State("register-email", "value"),
+            State("register-fullname", "value"),
+            State("register-password", "value"),
+        ],
+        prevent_initial_call=True,
+    )
+    def handle_register(n_clicks, email, full_name, password):
+        """Handle registration button click."""
+        if not n_clicks:
+            raise PreventUpdate
+
+        if not email or not full_name or not password:
+            return "Please fill in all fields", "warning", True, "/register"
+
+        # Call register endpoint
+        response = api_client.post(
+            "/auth/register",
+            {"email": email, "full_name": full_name, "password": password}
+        )
+
+        if "error" in response:
+            return f"Registration failed: {response['error']}", "danger", True, "/register"
+
+        # Success - redirect to login
+        return "Registration successful! Please login.", "success", True, "/login"
 
     @app.callback(
         Output("user-store", "data"),

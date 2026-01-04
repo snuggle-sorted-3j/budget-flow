@@ -5,6 +5,7 @@ from dash import html, dcc, Input, Output
 from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.period_callbacks import register_period_callbacks
 from layouts.login import create_login_layout
+from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
 from tabs.tab1_period_setup import create_period_tab_layout
 
@@ -55,6 +56,10 @@ def display_page(pathname, session_data, user_data):
                 user_email=user_data.get("email", "User") if user_data else "User"
             )
         return create_login_layout()
+    
+    # Registration page
+    if pathname == "/register":
+        return create_register_layout()
     
     # Dashboard and sub-pages
     if pathname and pathname.startswith("/dashboard"):
