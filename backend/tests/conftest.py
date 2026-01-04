@@ -16,6 +16,7 @@ from app.api.deps import get_db
 from app.core.security import create_access_token
 from app.models.user import User
 from app.models.currency import Currency
+from app.models.expense_category import ExpenseCategory
 import uuid
 
 # Use the test database URl from environment
@@ -100,3 +101,18 @@ def test_currency(db: Session, test_user: User) -> Currency:
     db.commit()
     db.refresh(currency)
     return currency
+
+@pytest.fixture
+def test_category(db: Session, test_user: User) -> ExpenseCategory:
+    """Create a test expense category for the user."""
+    category = ExpenseCategory(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        category_name="Test Category",
+        icon="🧪",
+        sort_order=1
+    )
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category

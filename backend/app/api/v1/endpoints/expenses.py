@@ -37,7 +37,7 @@ def create_expense(
         raise HTTPException(status_code=400, detail="Category not found or access denied")
 
     # Verify currency belongs to user
-    currency = crud_currency.get_currency(db=db, user_id=current_user.id, currency_id=expense_in.currency_id)
+    currency = crud_currency.get_currency_by_id(db=db, user_id=current_user.id, currency_id=expense_in.currency_id)
     if not currency:
         raise HTTPException(status_code=400, detail="Currency not found or access denied")
 
