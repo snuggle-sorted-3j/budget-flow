@@ -28,6 +28,13 @@ class APIClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_json = e.response.json()
+                    if "detail" in error_json:
+                        return {"error": error_json["detail"]}
+                except Exception:
+                    pass
             return {"error": str(e)}
 
     def post(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -40,6 +47,13 @@ class APIClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_json = e.response.json()
+                    if "detail" in error_json:
+                        return {"error": error_json["detail"]}
+                except Exception:
+                    pass
             return {"error": str(e)}
 
     def patch(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,6 +66,13 @@ class APIClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_json = e.response.json()
+                    if "detail" in error_json:
+                        return {"error": error_json["detail"]}
+                except Exception:
+                    pass
             return {"error": str(e)}
 
     def delete(self, endpoint: str) -> Dict[str, Any]:
@@ -62,4 +83,11 @@ class APIClient:
             response.raise_for_status()
             return response.json() if response.text else {"success": True}
         except requests.exceptions.RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_json = e.response.json()
+                    if "detail" in error_json:
+                        return {"error": error_json["detail"]}
+                except Exception:
+                    pass
             return {"error": str(e)}

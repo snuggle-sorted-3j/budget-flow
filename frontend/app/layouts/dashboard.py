@@ -78,7 +78,6 @@ def create_dashboard_layout(user_email: str = "User"):
             fluid=True,
         ),
         color="light",
-        light=True,
         className="mb-3",
         style={"marginLeft": "250px"},
     )
@@ -96,8 +95,14 @@ def create_dashboard_layout(user_email: str = "User"):
                         selected_className="custom-tab--selected",
                     ),
                     dcc.Tab(
-                        label="Income & Expenses",
-                        value="tab-transactions",
+                        label="Income",
+                        value="tab-income",
+                        className="custom-tab",
+                        selected_className="custom-tab--selected",
+                    ),
+                    dcc.Tab(
+                        label="Expenses",
+                        value="tab-expenses",
                         className="custom-tab",
                         selected_className="custom-tab--selected",
                     ),

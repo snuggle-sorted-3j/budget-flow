@@ -1,3 +1,4 @@
+import dash
 from dash import Input, Output, State, callback_context
 from dash.exceptions import PreventUpdate
 import json
@@ -26,26 +27,31 @@ def register_auth_callbacks(app):
     )
     def handle_login(n_clicks, email, password):
         """Handle login button click."""
+        print(f"DEBUG: Login button clicked. n_clicks: {n_clicks}")
         if not n_clicks:
             raise PreventUpdate
 
         if not email or not password:
-            return None, "Please enter both email and password", True, "/"
+            print("DEBUG: Missing email or password")
+            return dash.no_update, "Please enter both email and password", True, dash.no_update
 
         # Call login endpoint (JSON version)
+        print(f"DEBUG: Sending login request for {email}")
         response = api_client.post(
             "/auth/login/json",
             {"email": email, "password": password}
         )
+        print(f"DEBUG: Login response: {response}")
 
         if "error" in response:
-            return None, f"Login failed: {response['error']}", True, "/"
+            return dash.no_update, f"Login failed: {response['error']}", True, dash.no_update
 
         if "access_token" in response:
             token = response["access_token"]
+            print("DEBUG: Login successful")
             return {"token": token}, "", False, "/dashboard"
 
-        return None, "Invalid response from server", True, "/"
+        return dash.no_update, "Invalid response from server", True, dash.no_update
 
     @app.callback(
         [
@@ -64,22 +70,27 @@ def register_auth_callbacks(app):
     )
     def handle_register(n_clicks, email, full_name, password):
         """Handle registration button click."""
+        print(f"DEBUG: Register button clicked. n_clicks: {n_clicks}")
         if not n_clicks:
             raise PreventUpdate
 
         if not email or not full_name or not password:
-            return "Please fill in all fields", "warning", True, "/register"
+            print("DEBUG: Missing registration fields")
+            return "Please fill in all fields", "warning", True, dash.no_update
 
         # Call register endpoint
+        print(f"DEBUG: Sending register request for {email}")
         response = api_client.post(
             "/auth/register",
             {"email": email, "full_name": full_name, "password": password}
         )
+        print(f"DEBUG: Register response: {response}")
 
         if "error" in response:
-            return f"Registration failed: {response['error']}", "danger", True, "/register"
+            return f"Registration failed: {response['error']}", "danger", True, dash.no_update
 
         # Success - redirect to login
+        print("DEBUG: Registration successful")
         return "Registration successful! Please login.", "success", True, "/login"
 
     @app.callback(
