@@ -1,0 +1,32 @@
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class IncomeBase(BaseModel):
+    """Base schema for IncomeEntry."""
+
+    source_name: str = Field(..., max_length=255)
+    amount: Decimal = Field(..., ge=0)
+    currency_id: UUID
+    income_date: date | None = None
+    tax_applicable: bool = False
+    notes: str | None = None
+
+
+class IncomeCreate(IncomeBase):
+    """Schema for creating an IncomeEntry."""
+    pass
+
+
+class IncomeResponse(IncomeBase):
+    """Schema for IncomeEntry response."""
+    
+    id: UUID
+    calculation_period_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
