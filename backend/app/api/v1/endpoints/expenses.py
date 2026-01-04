@@ -60,3 +60,27 @@ def read_expenses(
         raise HTTPException(status_code=404, detail="Period not found")
         
     return crud_expense.list_expenses_for_period(db=db, period_id=period_id)
+
+
+@router.delete("/expenses/{expense_id}", status_code=status.HTTP_200_OK)
+def delete_expense_endpoint(
+    *,
+    db: Session = Depends(deps.get_db),
+    expense_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Delete an expense entry.
+    """
+    # Verify existence
+    expense = crud_expense.get_expense(db=db, expense_id=expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    # Verify period belongs to user to authorize deletion
+    period = crud_period.get_period(db=db, user_id=current_user.id, period_id=expense.calculation_period_id)
+    if not period:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this expense")
+        
+    crud_expense.delete_expense(db=db, expense_id=expense_id)
+    return {"message": "Expense deleted successfully"}

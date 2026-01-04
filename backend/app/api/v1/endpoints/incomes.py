@@ -54,3 +54,27 @@ def read_incomes(
         raise HTTPException(status_code=404, detail="Period not found")
         
     return crud_income.list_incomes_for_period(db=db, period_id=period_id)
+
+
+@router.delete("/incomes/{income_id}", status_code=status.HTTP_200_OK)
+def delete_income_endpoint(
+    *,
+    db: Session = Depends(deps.get_db),
+    income_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Delete an income entry.
+    """
+    # Verify existence and permissions (indirectly by period ownership or direct fetch)
+    income = crud_income.get_income(db=db, income_id=income_id)
+    if not income:
+        raise HTTPException(status_code=404, detail="Income not found")
+        
+    # Verify period belongs to user to authorize deletion
+    period = crud_period.get_period(db=db, user_id=current_user.id, period_id=income.calculation_period_id)
+    if not period:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this income")
+        
+    crud_income.delete_income(db=db, income_id=income_id)
+    return {"message": "Income deleted successfully"}
