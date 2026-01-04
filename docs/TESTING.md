@@ -71,5 +71,13 @@ Hierarchical management and protection of system-critical data.
   - `test_soft_delete_flow`: Verifies categories are hidden by default but retrievable via `include_inactive`.
   - `test_cannot_delete_category_with_expenses`: **Data Integrity** - Prevents deactivating a category that has active transactions.
 
+### 8. Reconciliation
+Critical logic for ensuring financial data balances across periods.
+- **File**: `tests/integration/test_reconciliation.py`
+- **Tests**:
+  - `test_reconciliation_zero_start`: Verifies base-case reconciliation with no previous period.
+  - `test_reconciliation_with_previous_period`: Verifies that `starting_balance` is correctly carried over from the preceding period's snapshots.
+  - `test_finalize_fails_if_unbalanced`: **Safety Check** - Ensures a period cannot be finalized unless all currencies are balanced.
+
 ---
 *Last Updated: 2026-01-04*
