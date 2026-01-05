@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.installment_item import InstallmentItem
@@ -64,15 +64,9 @@ def create_installment_payment(
         notes=payment_in.notes
     )
     db.add(payment)
+    db.commit() # Commit so recalculate sees it
     
-    # Update item balance
-    item.remaining_balance -= payment_in.payment_amount
-    
-    # Check status
-    if item.remaining_balance <= 0:
-        item.remaining_balance = Decimal("0.00") # Cap at 0
-        item.status = "PAID_OFF"
-    
+    recalculate_installment_balance(db, item)
     db.commit()
     db.refresh(payment)
     db.refresh(item)
@@ -92,12 +86,42 @@ def delete_installment_payment(
     item = getattr(payment, "installment_item") # relationship should be loaded or lazy
     if not item:
         item = db.get(InstallmentItem, payment.installment_item_id)
-        
-    # Revert balance
-    if item:
-        item.remaining_balance += payment.payment_amount
-        if item.status == "PAID_OFF" and item.remaining_balance > 0:
-            item.status = "ACTIVE"
             
     db.delete(payment)
+    db.commit() # Commit delete first so recalculate sees correct state
+
+    if item:
+        # Re-fetch item to ensure it's in session? Or just use it.
+        recalculate_installment_balance(db, item)
+        db.commit()
+
+def update_installment_item(
+    db: Session, item: InstallmentItem, item_update: any # InstallmentItemUpdate
+) -> InstallmentItem:
+    update_data = item_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(item, field, value)
+    
+    # If total_price changed, recalculate balance
+    recalculate_installment_balance(db, item)
+    
     db.commit()
+    db.refresh(item)
+    return item
+
+def recalculate_installment_balance(db: Session, item: InstallmentItem) -> None:
+    # Fetch all payments
+    stmt = select(func.sum(InstallmentPayment.payment_amount)).where(
+        InstallmentPayment.installment_item_id == item.id
+    )
+    total_paid = db.execute(stmt).scalar() or Decimal("0.00")
+    
+    item.remaining_balance = item.total_price - total_paid
+    if item.remaining_balance <= 0:
+        item.remaining_balance = Decimal("0.00")
+        item.status = "PAID_OFF"
+    else:
+        # Don't auto-set to ACTIVE if status was manually set to something else? 
+        # But we only have ACTIVE/PAID_OFF.
+        if item.status == "PAID_OFF":
+            item.status = "ACTIVE"

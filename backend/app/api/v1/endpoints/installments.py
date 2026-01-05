@@ -14,6 +14,7 @@ from app.models.calculation_period import CalculationPeriod
 from app.schemas.installment import (
     InstallmentItemCreate,
     InstallmentItemResponse,
+    InstallmentItemUpdate,
     InstallmentPaymentCreate,
     InstallmentPaymentResponse,
 )
@@ -44,6 +45,20 @@ def get_installment_items(
         if item.currency:
             item.currency_ticker = item.currency.ticker
     return items
+
+@router.patch("/items/{item_id}", response_model=InstallmentItemResponse)
+def patch_installment_item(
+    item_id: UUID,
+    item_update: InstallmentItemUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """Update an installment item."""
+    item = crud_installment.get_installment_item(db, item_id)
+    if not item or item.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Installment item not found")
+        
+    return crud_installment.update_installment_item(db, item, item_update)
 
 @router.get("/items/{item_id}/payments", response_model=List[InstallmentPaymentResponse])
 def get_installment_payments(

@@ -40,6 +40,15 @@ class InstallmentItemBase(BaseModel):
 class InstallmentItemCreate(InstallmentItemBase):
     initial_period_id: UUID
 
+class InstallmentItemUpdate(BaseModel):
+    item_name: Optional[str] = Field(None, max_length=255)
+    total_price: Optional[Decimal] = Field(None, gt=0)
+    currency_id: Optional[UUID] = None
+    monthly_payment_amount: Optional[Decimal] = Field(None, gt=0)
+    months_to_pay: Optional[int] = Field(None, gt=0)
+    notes: Optional[str] = None
+    status: Optional[str] = None # ACTIVE/PAID_OFF
+
 class InstallmentItemResponse(InstallmentItemBase):
     id: UUID
     user_id: UUID
@@ -51,9 +60,6 @@ class InstallmentItemResponse(InstallmentItemBase):
     
     # Relationships/Computed
     currency_ticker: Optional[str] = None
-    
-    # We might want to embed payments sometimes? 
-    # For now, let's keep it separate or include last payment info?
-    # Simple response is fine.
+    payments: List[InstallmentPaymentResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

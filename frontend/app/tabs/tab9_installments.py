@@ -6,6 +6,7 @@ def create_installments_tab_layout():
         [
             dcc.Store(id="inst-trigger-refresh", data=0),
             dcc.Store(id="payment-item-id-store"),
+            dcc.Store(id="edit-item-id-store"),
             
             html.H2("Installment Tracking", className="mb-4"),
             html.P("Track items you're paying for in installments. Log payments monthly to update balances.", className="text-muted mb-4"),
@@ -20,28 +21,28 @@ def create_installments_tab_layout():
                                 [
                                     dbc.Col(
                                         [
-                                            dbc.Label("Item Name"),
+                                            dbc.Label(["Item Name ", html.Span("*", className="text-danger")]),
                                             dbc.Input(id="inst-name", placeholder="e.g. iPhone 15 Pro", type="text"),
                                         ],
                                         md=4,
                                     ),
                                     dbc.Col(
                                         [
-                                            dbc.Label("Total Price"),
+                                            dbc.Label(["Total Price ", html.Span("*", className="text-danger")]),
                                             dbc.Input(id="inst-total", placeholder="0.00", type="number"),
                                         ],
                                         md=3,
                                     ),
                                     dbc.Col(
                                         [
-                                            dbc.Label("Currency"),
+                                            dbc.Label(["Currency ", html.Span("*", className="text-danger")]),
                                             dbc.Select(id="inst-currency"), # Options loaded via callback
                                         ],
                                         md=2,
                                     ),
                                     dbc.Col(
                                         [
-                                            dbc.Label("Start Period"),
+                                            dbc.Label(["Start Period ", html.Span("*", className="text-danger")]),
                                             dbc.Select(id="inst-start-period"), # Options loaded via callback
                                         ],
                                         md=3,
@@ -112,10 +113,11 @@ def create_installments_tab_layout():
                     dbc.ModalHeader(dbc.ModalTitle("Add Installment Payment")),
                     dbc.ModalBody(
                         [
+                            dbc.Alert(id="payment-modal-error", color="danger", is_open=False, dismissable=True),
                             html.Div(id="payment-modal-title", className="mb-3 fw-bold"),
-                            dbc.Label("Payment Amount"),
+                            dbc.Label(["Payment Amount ", html.Span("*", className="text-danger")]),
                             dbc.Input(id="payment-amount", type="number", placeholder="0.00", className="mb-3"),
-                            dbc.Label("Payment Date"),
+                            dbc.Label(["Payment Date ", html.Span("*", className="text-danger")]),
                             dbc.Input(id="payment-date", type="date", className="mb-3"),
                             dbc.Label("Notes"),
                             dbc.Input(id="payment-notes", type="text", className="mb-3"),
@@ -129,6 +131,34 @@ def create_installments_tab_layout():
                     ),
                 ],
                 id="add-payment-modal",
+                is_open=False,
+            ),
+
+            # Edit Item Modal (for total price increase etc)
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(dbc.ModalTitle("Edit Installment Plan")),
+                    dbc.ModalBody(
+                        [
+                            dbc.Alert(id="edit-inst-modal-error", color="danger", is_open=False, dismissable=True),
+                            dbc.Label("Item Name"),
+                            dbc.Input(id="edit-inst-name", type="text", className="mb-3"),
+                            dbc.Label("Total Price (increase/decrease here)"),
+                            dbc.Input(id="edit-inst-total", type="number", className="mb-3"),
+                             dbc.Label("Monthly Payment"),
+                            dbc.Input(id="edit-inst-monthly", type="number", className="mb-3"),
+                            dbc.Label("Notes"),
+                            dbc.Input(id="edit-inst-notes", type="text", className="mb-3"),
+                        ]
+                    ),
+                    dbc.ModalFooter(
+                        [
+                            dbc.Button("Cancel", id="edit-inst-cancel-btn", className="me-2"),
+                            dbc.Button("Save Changes", id="edit-inst-save-btn", color="primary"),
+                        ]
+                    ),
+                ],
+                id="edit-inst-modal",
                 is_open=False,
             ),
         ],
