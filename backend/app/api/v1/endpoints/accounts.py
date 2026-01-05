@@ -24,15 +24,21 @@ def create_account(
     Create a new account.
     """
     # Ensure currency exists and belongs to user
-    currency = crud_currency.get_currency(db=db, user_id=current_user.id, currency_id=account_in.currency_id)
+    currency = crud_currency.get_currency_by_id(db=db, user_id=current_user.id, currency_id=account_in.currency_id)
     if not currency:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Currency not found or access denied",
         )
     
-    account = crud_account.create_account(db=db, user_id=current_user.id, data=account_in)
-    return account
+    try:
+        account = crud_account.create_account(db=db, user_id=current_user.id, data=account_in)
+        return account
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.get("/", response_model=List[AccountResponse])
@@ -63,3 +69,22 @@ def deactivate_account(
             detail="Account not found",
         )
     return account
+
+
+@router.delete("/{account_id}")
+def delete_account(
+    *,
+    db: Session = Depends(deps.get_db),
+    account_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Delete an account.
+    """
+    try:
+        success = crud_account.delete_account(db=db, user_id=current_user.id, account_id=account_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Account not found")
+        return {"message": "Account deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

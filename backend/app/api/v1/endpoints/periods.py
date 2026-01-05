@@ -76,3 +76,22 @@ def update_period_status(
             detail="Period not found",
         )
     return period
+
+
+@router.delete("/{period_id}", response_model=PeriodResponse)
+def delete_period(
+    *,
+    db: Session = Depends(deps.get_db),
+    period_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Delete a calculation period.
+    """
+    period = crud_period.delete_period(db=db, user_id=current_user.id, period_id=period_id)
+    if not period:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Period not found",
+        )
+    return period

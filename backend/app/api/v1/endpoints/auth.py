@@ -37,6 +37,13 @@ def register(
             detail="Email already registered",
         )
     user = create_user(db, user_in)
+    
+    # Auto-initialize currencies and categories
+    from app.crud.currency import initialize_default_currencies
+    from app.crud.expense_category import create_system_categories
+    initialize_default_currencies(db, user.id)
+    create_system_categories(db, user.id)
+    
     return UserResponse.model_validate(user)
 
 

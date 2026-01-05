@@ -13,41 +13,17 @@ def register_income_callbacks(app):
     api_client = APIClient()
 
     @app.callback(
-        Output("income-period-selector", "options"),
-        [Input("url", "pathname"), Input("session-store", "data")],
-    )
-    def load_income_periods(pathname, session_data):
-        """Load periods for income dropdown."""
-        if not pathname or not pathname.startswith("/dashboard"):
-            raise PreventUpdate
-
-        if not session_data or "token" not in session_data:
-            return []
-
-        token = session_data["token"]
-        api_client.set_token(token)
-
-        response = api_client.get("/periods/")
-
-        if "error" in response:
-            return []
-
-        return [
-            {"label": p.get("period_name", ""), "value": p.get("id", "")}
-            for p in response
-        ]
-
-    @app.callback(
         [
             Output("income-form-container", "style"),
             Output("income-currency", "options"),
+            Output("income-currency", "value"),
         ],
-        [Input("income-period-selector", "value"), Input("session-store", "data")],
+        [Input("current-period-id", "data"), Input("session-store", "data")],
     )
     def show_income_form(period_id, session_data):
         """Show income form and load currencies when period is selected."""
         if not period_id or not session_data or "token" not in session_data:
-            return {"display": "none"}, []
+            return {"display": "none"}, [], None
 
         token = session_data["token"]
         api_client.set_token(token)
@@ -55,13 +31,20 @@ def register_income_callbacks(app):
         # Load currencies
         currencies_response = api_client.get("/currencies/")
         currency_options = []
+        default_currency_id = None
         if "error" not in currencies_response:
-            currency_options = [
-                {"label": f"{c.get('currency_code', '')} - {c.get('currency_name', '')}", "value": c.get("id", "")}
-                for c in currencies_response
-            ]
+            for c in currencies_response:
+                ticker = c.get('ticker', '')
+                curr_id = c.get('id', '')
+                currency_options.append({"label": f"{ticker} - {c.get('name', '')}", "value": curr_id})
+                if c.get("is_default"):
+                    default_currency_id = curr_id
+            
+            # Fallback to first one
+            if not default_currency_id and currency_options:
+                default_currency_id = currency_options[0]["value"]
 
-        return {"display": "block"}, currency_options
+        return {"display": "block"}, currency_options, default_currency_id
 
     @app.callback(
         [
@@ -70,15 +53,16 @@ def register_income_callbacks(app):
             Output("income-message", "is_open"),
             Output("income-source-name", "value"),
             Output("income-amount", "value"),
-            Output("income-currency", "value"),
+            Output("income-currency", "value", allow_duplicate=True),
             Output("income-date", "value"),
             Output("income-notes", "value"),
             Output("income-tax-applicable", "value"),
             Output("income-table-container", "children", allow_duplicate=True),
+            Output("recon-trigger-store", "data", allow_duplicate=True),
         ],
         [Input("add-income-btn", "n_clicks")],
         [
-            State("income-period-selector", "value"),
+            State("current-period-id", "data"),
             State("income-source-name", "value"),
             State("income-amount", "value"),
             State("income-currency", "value"),
@@ -139,7 +123,7 @@ def register_income_callbacks(app):
         if notes:
             payload["notes"] = notes
 
-        response = api_client.post(f"/periods/{period_id}/income", payload)
+        response = api_client.post(f"/periods/{period_id}/incomes", payload)
 
         if "error" in response:
             return (
@@ -156,7 +140,7 @@ def register_income_callbacks(app):
             )
 
         # Success - clear form and refresh table
-        income_response = api_client.get(f"/periods/{period_id}/income")
+        income_response = api_client.get(f"/periods/{period_id}/incomes")
         table = create_income_table(income_response if "error" not in income_response else [], period_id, api_client)
 
         return (
@@ -165,26 +149,36 @@ def register_income_callbacks(app):
             True,
             "",  # Clear source name
             "",  # Clear amount
-            None,  # Clear currency
+            dash.no_update,  # Keep current currency
             "",  # Clear date
             "",  # Clear notes
             False,  # Reset checkbox
             table,
+            dash.no_update # Will be handled by return if we wanted to increment, but let's just use current time
         )
 
     @app.callback(
+        Output("recon-trigger-store", "data", allow_duplicate=True),
+        [Input("income-table-container", "children")],
+        prevent_initial_call=True
+    )
+    def trigger_recon_on_income_change(child):
+        from datetime import datetime
+        return datetime.now().timestamp()
+
+    @app.callback(
         Output("income-table-container", "children"),
-        [Input("income-period-selector", "value"), Input("session-store", "data")],
+        [Input("current-period-id", "data"), Input("session-store", "data")],
     )
     def load_income_table(period_id, session_data):
         """Load income entries for selected period."""
         if not period_id or not session_data or "token" not in session_data:
-            return html.Div("Select a period to view income entries", className="text-muted")
+            return html.Div("Select a period in the header to view income entries", className="text-muted")
 
         token = session_data["token"]
         api_client.set_token(token)
 
-        response = api_client.get(f"/periods/{period_id}/income")
+        response = api_client.get(f"/periods/{period_id}/incomes")
 
         if "error" in response:
             return html.Div(f"Error loading income: {response['error']}", className="text-danger")
@@ -192,19 +186,22 @@ def register_income_callbacks(app):
         return create_income_table(response, period_id, api_client)
 
 
+from utils.ui_helpers import create_empty_state, format_currency
+
 def create_income_table(income_entries, period_id, api_client):
     """Create a DataTable from income entries."""
     if not income_entries or len(income_entries) == 0:
-        return html.Div(
-            "No income entries found. Add your first income above!",
-            className="text-muted text-center py-4",
+        return create_empty_state(
+            "bi-cash-stack",
+            "No income entries yet",
+            "Add your first income source using the form above."
         )
 
     # Prepare data for table
     table_data = [
         {
             "source_name": entry.get("source_name", ""),
-            "amount": f"{entry.get('amount', 0):.2f}",
+            "amount": format_currency(entry.get('amount', 0)),
             "currency": entry.get("currency_code", ""),
             "date": entry.get("income_date", "N/A"),
             "tax_applicable": "Yes" if entry.get("tax_applicable", False) else "No",
@@ -223,14 +220,27 @@ def create_income_table(income_entries, period_id, api_client):
             {"name": "Tax Applicable", "id": "tax_applicable"},
         ],
         data=table_data,
-        style_table={"overflowX": "auto"},
+        style_table={"overflowX": "auto", "borderRadius": "8px", "overflow": "hidden"},
         style_cell={
             "textAlign": "left",
-            "padding": "10px",
+            "padding": "12px",
+            "fontSize": "14px",
+            "border": "none",
+            "borderBottom": "1px solid #edf2f7"
         },
         style_header={
-            "backgroundColor": "rgb(230, 230, 230)",
+            "backgroundColor": "#f7fafc",
             "fontWeight": "bold",
+            "color": "#4a5568",
+            "textTransform": "uppercase",
+            "fontSize": "12px",
+            "border": "none"
         },
+        style_data_conditional=[
+            {
+                "if": {"row_index": "odd"},
+                "backgroundColor": "#fcfdfd",
+            }
+        ],
         page_size=10,
     )

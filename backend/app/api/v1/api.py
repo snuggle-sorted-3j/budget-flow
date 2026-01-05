@@ -12,7 +12,12 @@ from app.api.v1.endpoints import (
     incomes,
     periods,
     reconciliation,
+    periods,
+    reconciliation,
     system,
+    system,
+    investments,
+    suspended_expenses,
 )
 
 api_router = APIRouter()
@@ -29,6 +34,8 @@ api_router.include_router(expenses.router, tags=["Expenses"])
 api_router.include_router(periods.router, prefix="/periods", tags=["Periods"])
 api_router.include_router(reconciliation.router, tags=["Reconciliation"])
 api_router.include_router(system.router, prefix="/system", tags=["System"])
+api_router.include_router(investments.router, prefix="/investments", tags=["Investments"])
+api_router.include_router(suspended_expenses.router, prefix="/suspended", tags=["Suspended Expenses"])
 
 
 

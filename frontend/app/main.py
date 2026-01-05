@@ -6,12 +6,27 @@ from callbacks.auth_callbacks import register_auth_callbacks
 from callbacks.period_callbacks import register_period_callbacks
 from callbacks.income_callbacks import register_income_callbacks
 from callbacks.expense_callbacks import register_expense_callbacks
+from callbacks.reconciliation_callbacks import register_reconciliation_callbacks
+from callbacks.account_callbacks import register_account_callbacks
+from callbacks.currency_callbacks import register_currency_callbacks
+from callbacks.category_callbacks import register_category_callbacks
+from callbacks.dashboard_callbacks import register_dashboard_home_callbacks
+from callbacks.common_reconciliation_callbacks import register_common_reconciliation_callbacks
+from callbacks.investment_callbacks import register_investment_callbacks
+from callbacks.suspended_callbacks import register_suspended_callbacks
 from layouts.login import create_login_layout
 from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
+from tabs.dashboard_home import create_dashboard_home_layout
 from tabs.tab1_period_setup import create_period_tab_layout
 from tabs.tab2_income import create_income_tab_layout
 from tabs.tab3_expenses import create_expenses_tab_layout
+from tabs.tab8_reconciliation import create_reconciliation_tab_layout
+from tabs.tab4_accounts import create_accounts_tab_layout
+from tabs.tab5_currencies import create_currencies_tab_layout
+from tabs.tab6_categories import create_categories_tab_layout
+from tabs.tab7_investments import create_investments_tab_layout
+from tabs.tab4_suspended import create_suspended_tab_layout
 
 # Initialize Dash app
 app = dash.Dash(
@@ -41,6 +56,14 @@ register_auth_callbacks(app)
 register_period_callbacks(app)
 register_income_callbacks(app)
 register_expense_callbacks(app)
+register_reconciliation_callbacks(app)
+register_account_callbacks(app)
+register_currency_callbacks(app)
+register_category_callbacks(app)
+register_dashboard_home_callbacks(app)
+register_common_reconciliation_callbacks(app)
+register_investment_callbacks(app)
+register_suspended_callbacks(app)
 
 
 @app.callback(
@@ -78,22 +101,36 @@ def display_page(pathname, session_data, user_data):
     return create_login_layout()
 
 
-# Tab switching callback
+# Sub-dashboard content rendering based on URL
 @app.callback(
     Output("dashboard-content", "children"),
-    [Input("dashboard-tabs", "value")],
+    [Input("url", "pathname")],
 )
-def render_tab_content(active_tab):
-    """Render content based on selected tab."""
-    if active_tab == "tab-periods":
+def render_dashboard_content(pathname):
+    """Render content based on URL pathname."""
+    if pathname == "/dashboard" or pathname == "/dashboard/":
+        return create_dashboard_home_layout()
+    elif pathname == "/dashboard/periods":
         return create_period_tab_layout()
-    elif active_tab == "tab-income":
+    elif pathname == "/dashboard/income":
         return create_income_tab_layout()
-    elif active_tab == "tab-expenses":
+    elif pathname == "/dashboard/expenses":
         return create_expenses_tab_layout()
-    elif active_tab == "tab-reconciliation":
-        return html.Div("Reconciliation tab - Coming soon!", className="p-4")
-    return html.Div("Select a tab", className="p-4")
+    elif pathname == "/dashboard/reconciliation":
+        return create_reconciliation_tab_layout()
+    elif pathname == "/dashboard/accounts":
+        return create_accounts_tab_layout()
+    elif pathname == "/dashboard/currencies":
+        return create_currencies_tab_layout()
+    elif pathname == "/dashboard/categories":
+        return create_categories_tab_layout()
+    elif pathname == "/dashboard/investments":
+        return create_investments_tab_layout()
+    elif pathname == "/dashboard/suspended":
+        return create_suspended_tab_layout()
+    
+    # Default to dashboard home
+    return create_dashboard_home_layout()
 
 
 if __name__ == "__main__":

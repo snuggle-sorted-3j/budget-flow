@@ -7,35 +7,12 @@ def create_income_tab_layout():
     
     return dbc.Container(
         [
-            # Period Selector
-            dbc.Card(
-                [
-                    dbc.CardHeader(html.H4("Select Period")),
-                    dbc.CardBody(
-                        [
-                            dbc.Row(
-                                [
-                                    dbc.Col(
-                                        [
-                                            dbc.Label("Period"),
-                                            dbc.Select(
-                                                id="income-period-selector",
-                                                placeholder="Select a period...",
-                                            ),
-                                        ],
-                                        md=6,
-                                    ),
-                                ],
-                            ),
-                        ]
-                    ),
-                ],
-                className="mb-4",
-            ),
             # Add Income Form (hidden until period selected)
             html.Div(
                 id="income-form-container",
                 children=[
+                    # Live Reconciliation Summary
+                    html.Div(id="income-recon-summary", className="mb-4"),
                     dbc.Card(
                         [
                             dbc.CardHeader(html.H4("Add Income")),

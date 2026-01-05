@@ -118,6 +118,7 @@ def register_auth_callbacks(app):
         [
             Output("session-store", "data", allow_duplicate=True),
             Output("user-store", "data", allow_duplicate=True),
+            Output("current-period-id", "data", allow_duplicate=True),
             Output("url", "pathname", allow_duplicate=True),
         ],
         [Input("logout-button", "n_clicks")],
@@ -129,4 +130,4 @@ def register_auth_callbacks(app):
             raise PreventUpdate
 
         # Clear stores and redirect to login
-        return None, None, "/login"
+        return None, None, None, "/login"
