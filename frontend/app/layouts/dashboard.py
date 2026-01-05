@@ -67,6 +67,12 @@ def create_dashboard_layout(user_email: str = "User"):
                         active="exact",
                         className="px-3"
                     ),
+                    dbc.NavLink(
+                        [html.I(className="bi bi-arrow-left-right me-3"), "Conversions"],
+                        href="/dashboard/conversions",
+                        active="exact",
+                        className="px-3"
+                    ),
                     html.Div("SETTINGS", className="nav-section-title px-3 mt-4 mb-2"),
                     dbc.NavLink(
                         [html.I(className="bi bi-wallet2 me-3"), "Accounts"],

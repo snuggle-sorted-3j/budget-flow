@@ -7,7 +7,9 @@ def create_financial_summary_card(cs):
     total_income = float(cs.get("total_income", 0))
     total_expenses = float(cs.get("total_expenses", 0))
     total_installments = float(cs.get("total_installments", 0))
-    net_diff = total_income - total_expenses - total_installments
+    total_conv_out = float(cs.get("total_conversions_out", 0))
+    total_conv_in = float(cs.get("total_conversions_in", 0))
+    net_diff = total_income - total_expenses - total_installments - total_conv_out + total_conv_in
     
     diff_class = get_amount_class(net_diff)
     formatted_net = format_currency(net_diff, show_sign=True)
@@ -16,7 +18,6 @@ def create_financial_summary_card(cs):
     recon_diff = float(cs.get("difference", 0))
     
     status_pill_class = "status-balanced" if is_balanced else "status-difference"
-    recon_status = "BALANCED ✓" if is_balanced else f"DIFFERENCE: {format_currency(recon_diff)}"
     
     border_class = "card-balanced" if is_balanced else "card-unbalanced"
 
@@ -41,8 +42,19 @@ def create_financial_summary_card(cs):
                             html.Div("Installments", className="text-muted x-small fw-bold text-uppercase"),
                             html.Div(f"{total_installments:,.2f}", className="fw-bold"),
                         ], width=4),
-                    ], className="mb-3"),
+                    ], className="mb-2"),
                     
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div("Exch. Out", className="text-muted x-small fw-bold text-uppercase"),
+                            html.Div(f"{total_conv_out:,.2f}", className="fw-bold text-danger"),
+                        ], width=4),
+                        dbc.Col([
+                            html.Div("Exch. In", className="text-muted x-small fw-bold text-uppercase"),
+                            html.Div(f"{total_conv_in:,.2f}", className="fw-bold text-success"),
+                        ], width=4),
+                    ], className="mb-3") if (total_conv_out > 0 or total_conv_in > 0) else None,
+
                     html.Hr(className="my-2 opacity-25"),
                     
                     html.Div([
@@ -53,7 +65,7 @@ def create_financial_summary_card(cs):
                 ])
             ])
         ], className=f"dashboard-card {border_class} mb-4"),
-        md=12, lg=6, xl=4 # Wider on smaller screens
+        md=12, lg=6, xl=4
     )
 
 def create_financial_summary_row(reconciliations):

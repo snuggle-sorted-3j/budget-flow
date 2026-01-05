@@ -14,6 +14,7 @@ from app.models.income_entry import IncomeEntry
 from app.models.installment_payment import InstallmentPayment
 from app.models.investment_transfer import InvestmentTransfer
 from app.models.suspended_expense import SuspendedExpense
+from app.models.currency_conversion import CurrencyConversion
 from app.schemas.reconciliation import PeriodReconciliation, ReconciliationSummary
 
 
@@ -162,8 +163,36 @@ def calculate_reconciliation(
         for ip in inst_payments:
             total_installments += ip.payment_amount
 
-        # l) expected_balance = starting + income - expenses - transfers - susp_out + susp_in - installments
-        expected_balance = starting_balance + total_income - total_expenses - total_transfers - total_suspended_out + total_suspended_in - total_installments
+        # m) Currency Conversions
+        total_conversions_out = Decimal("0.00")
+        total_conversions_in = Decimal("0.00")
+        
+        # Conversions FROM this currency
+        convs_out = db.execute(
+            select(CurrencyConversion).where(
+                CurrencyConversion.calculation_period_id == current_period.id,
+                CurrencyConversion.from_currency_id == currency.id
+            )
+        ).scalars().all()
+        for co in convs_out:
+            total_conversions_out += co.from_amount
+            
+        # Conversions TO this currency
+        convs_in = db.execute(
+            select(CurrencyConversion).where(
+                CurrencyConversion.calculation_period_id == current_period.id,
+                CurrencyConversion.to_currency_id == currency.id
+            )
+        ).scalars().all()
+        for ci in convs_in:
+            total_conversions_in += ci.to_amount
+
+        # l) expected_balance = starting + income - expenses - transfers - susp_out + susp_in - installments - conv_out + conv_in
+        expected_balance = (
+            starting_balance + total_income - total_expenses - total_transfers - 
+            total_suspended_out + total_suspended_in - total_installments - 
+            total_conversions_out + total_conversions_in
+        )
         
         # m) difference = expected_balance - actual_balance
         difference = expected_balance - actual_balance
@@ -179,6 +208,8 @@ def calculate_reconciliation(
                 total_income=total_income,
                 total_expenses=total_expenses,
                 total_installments=total_installments,
+                total_conversions_out=total_conversions_out,
+                total_conversions_in=total_conversions_in,
                 expected_balance=expected_balance,
                 actual_balance=actual_balance,
                 difference=difference,

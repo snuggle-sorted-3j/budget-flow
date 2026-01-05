@@ -13,6 +13,8 @@ class ReconciliationSummary(BaseModel):
     total_income: Decimal
     total_expenses: Decimal
     total_installments: Decimal
+    total_conversions_out: Decimal = Decimal("0.00")
+    total_conversions_in: Decimal = Decimal("0.00")
     expected_balance: Decimal
     actual_balance: Decimal
     difference: Decimal

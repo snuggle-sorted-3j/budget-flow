@@ -15,6 +15,7 @@ from callbacks.common_reconciliation_callbacks import register_common_reconcilia
 from callbacks.investment_callbacks import register_investment_callbacks
 from callbacks.suspended_callbacks import register_suspended_callbacks
 from callbacks.installment_callbacks import register_installment_callbacks
+from callbacks.conversion_callbacks import register_conversion_callbacks
 from layouts.login import create_login_layout
 from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
@@ -29,6 +30,7 @@ from tabs.tab6_categories import create_categories_tab_layout
 from tabs.tab7_investments import create_investments_tab_layout
 from tabs.tab4_suspended import create_suspended_tab_layout
 from tabs.tab9_installments import create_installments_tab_layout
+from tabs.tab10_conversions import create_conversions_tab_layout
 
 # Initialize Dash app
 app = dash.Dash(
@@ -67,6 +69,7 @@ register_common_reconciliation_callbacks(app)
 register_investment_callbacks(app)
 register_suspended_callbacks(app)
 register_installment_callbacks(app)
+register_conversion_callbacks(app)
 
 
 @app.callback(
@@ -133,6 +136,8 @@ def render_dashboard_content(pathname):
         return create_suspended_tab_layout()
     elif pathname == "/dashboard/installments":
         return create_installments_tab_layout()
+    elif pathname == "/dashboard/conversions":
+        return create_conversions_tab_layout()
     
     # Default to dashboard home
     return create_dashboard_home_layout()

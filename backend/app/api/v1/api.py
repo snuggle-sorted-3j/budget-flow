@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     investments,
     suspended_expenses,
     installments,
+    currency_conversions,
 )
 
 api_router = APIRouter()
@@ -38,6 +39,7 @@ api_router.include_router(system.router, prefix="/system", tags=["System"])
 api_router.include_router(investments.router, prefix="/investments", tags=["Investments"])
 api_router.include_router(suspended_expenses.router, prefix="/suspended", tags=["Suspended Expenses"])
 api_router.include_router(installments.router, prefix="/installments", tags=["Installments"])
+api_router.include_router(currency_conversions.router, tags=["Currency Conversions"])
 
 
 
