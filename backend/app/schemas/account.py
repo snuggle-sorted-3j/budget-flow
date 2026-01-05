@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -10,6 +10,8 @@ class AccountBase(BaseModel):
     account_name: str = Field(..., max_length=255)
     account_type: str = Field(..., pattern="^(BANK|CASH)$")
     currency_id: UUID
+    opening_balance: float = 0.0
+    opening_balance_date: date | None = None
 
 
 class AccountCreate(AccountBase):

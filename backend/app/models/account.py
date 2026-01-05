@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, TIMESTAMP, func
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Numeric, String, TIMESTAMP, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,8 @@ class Account(Base):
         UUID(as_uuid=True), ForeignKey("currencies.id", ondelete="RESTRICT"), nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    opening_balance: Mapped[float] = mapped_column(Numeric(15, 2), default=0.0, nullable=False)
+    opening_balance_date: Mapped[object | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[object] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
     )

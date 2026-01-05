@@ -24,6 +24,15 @@ def create_period(db: Session, user_id: UUID, data: PeriodCreate) -> Calculation
     return db_period
 
 
+def delete_period(db: Session, user_id: UUID, period_id: UUID) -> Optional[CalculationPeriod]:
+    """Delete a calculation period."""
+    period = get_period(db, user_id, period_id)
+    if period:
+        db.delete(period)
+        db.commit()
+    return period
+
+
 def get_period(db: Session, user_id: UUID, period_id: UUID) -> Optional[CalculationPeriod]:
     """Get a period by ID and user ID."""
     stmt = select(CalculationPeriod).where(
