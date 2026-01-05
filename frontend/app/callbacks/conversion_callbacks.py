@@ -19,6 +19,7 @@ def register_conversion_callbacks(app):
             Output("conv-account", "options"),
             Output("conversions-table-container", "children"),
             Output("conv-date", "value"),
+            Output("rate-pair-select", "options"),
         ],
         [
             Input("url", "pathname"),
@@ -32,7 +33,7 @@ def register_conversion_callbacks(app):
              raise PreventUpdate
         
         if not session_data or "token" not in session_data:
-            return [], [], [], html.Div("Please log in"), dash.no_update
+            return [], [], [], html.Div("Please log in"), dash.no_update, []
 
         api_client.set_token(session_data["token"])
 
@@ -50,6 +51,7 @@ def register_conversion_callbacks(app):
 
         # Fetch Conversions for period
         table_content = html.Div("Select a period to view conversions.", className="text-muted")
+        pair_opts = []
         if period_id:
             convs = api_client.get(f"/periods/{period_id}/currency-conversions")
             if "error" in convs:
@@ -58,27 +60,54 @@ def register_conversion_callbacks(app):
                 table_content = create_empty_state("bi-arrow-left-right", "No Conversions Recorded", "Add an exchange transaction above.")
             else:
                 table_content = create_conversions_table(convs)
+                # Generate unique pairs for trends
+                pairs = set()
+                for c in convs:
+                    if c.get("from_currency_ticker") and c.get("to_currency_ticker"):
+                        pairs.add((c["from_currency_ticker"], c["to_currency_ticker"]))
+                
+                pair_opts = [{"label": f"{p[0]} → {p[1]}", "value": f"{p[0]}-{p[1]}"} for p in sorted(list(pairs))]
 
         # Default date to today
         today = datetime.now().strftime("%Y-%m-%d")
 
-        return curr_opts, curr_opts, acc_opts, table_content, today
+        return curr_opts, curr_opts, acc_opts, table_content, today, pair_opts
 
-    # --- Auto-calculate Rate ---
+    # --- Bi-directional Calculation Logic ---
     @app.callback(
-        [Output("conv-rate", "value"), Output("conv-rate-display", "children")],
-        [Input("conv-from-amount", "value"), Input("conv-to-amount", "value")],
-        [State("conv-rate", "value")]
+        [Output("conv-to-amount", "value"), Output("conv-rate", "value")],
+        [
+            Input("conv-from-amount", "value"),
+            Input("conv-to-amount", "value"),
+            Input("conv-rate", "value"),
+        ],
+        prevent_initial_call=True
     )
-    def auto_calc_rate(from_amt, to_amt, current_rate):
-        if not from_amt or not to_amt or from_amt <= 0:
-            return dash.no_update, ""
+    def handle_conversions_math(from_amt, to_amt, rate):
+        trig_id = ctx.triggered_id
         
-        calc_rate = round(to_amt / from_amt, 4)
-        display = f"Calculated Rate: {calc_rate}"
+        # We need at least "From" to calculate something usually, or "To" + "Rate" 
+        # But per user request: if From and To are present, calc Rate. If Rate is changed, update To.
         
-        # If user hasn't typed a rate yet, or it's empty, we fill it
-        return calc_rate, display
+        if trig_id == "conv-from-amount":
+            # If changed from, update TO if Rate exists
+            if from_amt and rate and rate > 0:
+                new_to = round(from_amt / rate, 2)
+                return new_to, dash.no_update
+                
+        elif trig_id == "conv-to-amount":
+            # If changed to, update RATE: Rate = From / To
+            if from_amt and from_amt > 0 and to_amt and to_amt > 0:
+                new_rate = round(from_amt / to_amt, 4)
+                return dash.no_update, new_rate
+                
+        elif trig_id == "conv-rate":
+            # If changed rate, update TO: To = From / Rate
+            if from_amt and from_amt > 0 and rate and rate > 0:
+                new_to = round(from_amt / rate, 2)
+                return new_to, dash.no_update
+                
+        return dash.no_update, dash.no_update
 
     # --- Record Conversion ---
     @app.callback(
@@ -86,8 +115,8 @@ def register_conversion_callbacks(app):
             Output("conv-message", "children"),
             Output("conv-message", "color"),
             Output("conv-message-collapse", "is_open"),
-            Output("conv-from-amount", "value"),
-            Output("conv-to-amount", "value"),
+            Output("conv-from-amount", "value", allow_duplicate=True),
+            Output("conv-to-amount", "value", allow_duplicate=True),
             Output("conv-rate", "value", allow_duplicate=True),
             Output("conv-notes", "value"),
             Output("conv-trigger-refresh", "data", allow_duplicate=True),
@@ -166,14 +195,12 @@ def register_conversion_callbacks(app):
             return go.Figure().update_layout(title="Select a currency pair to view trends")
         
         api_client.set_token(session_data["token"])
-        # In a real app, we might have an endpoint for ALL conversions across periods.
-        # For now, let's just fetch for the current period to demonstrate.
         if not period_id: return go.Figure()
         
         convs = api_client.get(f"/periods/{period_id}/currency-conversions")
         if "error" in convs or not convs: return go.Figure()
         
-        # Filter for pair (manual or ticker based)
+        # Filter for pair (ticker based)
         from_t, to_t = pair.split("-")
         filtered = [c for c in convs if c["from_currency_ticker"] == from_t and c["to_currency_ticker"] == to_t]
         
@@ -187,14 +214,17 @@ def register_conversion_callbacks(app):
             x=[c["conversion_date"] for c in filtered],
             y=[float(c["rate"]) for c in filtered],
             mode="lines+markers",
-            name=pair
+            name=f"{from_t} to {to_t}",
+            line=dict(width=3, color="#0d6efd"),
+            marker=dict(size=8)
         ))
         
         fig.update_layout(
-            title=f"Exchange Rate Trend: {pair}",
+            title=f"Exchange Rate Trend: {from_t} → {to_t}",
             xaxis_title="Date",
-            yaxis_title="Rate",
+            yaxis_title=f"Rate ({from_t} per 1 {to_t})",
             template="plotly_white",
+            hovermode="x unified",
             margin=dict(l=40, r=40, t=60, b=40)
         )
         return fig
@@ -205,7 +235,7 @@ def create_conversions_table(convs):
     for c in convs:
         from_display = f"{float(c['from_amount']):,.2f} {c['from_currency_ticker']}"
         to_display = f"{float(c['to_amount']):,.2f} {c['to_currency_ticker']}"
-        rate_display = f"@ {float(c['rate']):,.4f}"
+        rate_display = f"@ {float(c['rate']):,.2f}"
         
         rows.append(html.Tr([
             html.Td(c["conversion_date"]),

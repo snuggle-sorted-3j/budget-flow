@@ -53,9 +53,9 @@ def create_conversions_tab_layout():
                                 [
                                     dbc.Col(
                                         [
-                                            dbc.Label("Exchange Rate"),
-                                            dbc.Input(id="conv-rate", type="number", placeholder="Auto-calculated"),
-                                            html.Small(id="conv-rate-display", className="text-info mt-1 d-block"),
+                                            dbc.Label(["Unit Cost (Rate) ", html.Span("*", className="text-danger")]),
+                                            dbc.Input(id="conv-rate", type="number", step="0.01", placeholder="0.00"),
+                                            html.Small("Rate = From / To (Cost per 1 unit of 'To')", className="text-muted mt-1 d-block"),
                                         ],
                                         md=3,
                                     ),
@@ -76,7 +76,7 @@ def create_conversions_tab_layout():
                                     dbc.Col(
                                         [
                                             dbc.Label("Notes"),
-                                            dbc.Input(id="conv-notes", type="text", placeholder="e.g. Wise exchange"),
+                                            dbc.Input(id="conv-notes", type="text", placeholder="e.g. Bank exchange"),
                                         ],
                                         md=3,
                                     ),
@@ -112,10 +112,7 @@ def create_conversions_tab_layout():
                                     dbc.Label("Pair Selection"),
                                     dbc.Select(
                                         id="rate-pair-select",
-                                        options=[
-                                            {"label": "USD/PLN", "value": "USD-PLN"},
-                                            {"label": "EUR/PLN", "value": "EUR-PLN"},
-                                        ],
+                                        options=[], 
                                         placeholder="Select pair to view chart",
                                         className="mb-3"
                                     )
