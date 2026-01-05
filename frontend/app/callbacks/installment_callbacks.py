@@ -212,11 +212,11 @@ def register_installment_callbacks(app):
         if not n_clicks: raise PreventUpdate
         
         if not item_id or not amount or not date_str:
-             return dash.no_update, dash.no_update # Validation?
+             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
              
         # Use current monitoring period for the payment
         if not period_id:
-             return dash.no_update, dash.no_update # Error
+             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
              
         api_client.set_token(session_data["token"])
         payload = {
