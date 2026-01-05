@@ -38,6 +38,7 @@ class InvestmentTransfer(Base):
         UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
     )
     transfer_date: Mapped[date] = mapped_column(Date, nullable=False)
+    units_added: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 6))
     is_opening_balance: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[object] = mapped_column(
