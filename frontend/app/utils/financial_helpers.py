@@ -6,7 +6,8 @@ def create_financial_summary_card(cs):
     """Create a polished financial summary card for a specific currency."""
     total_income = float(cs.get("total_income", 0))
     total_expenses = float(cs.get("total_expenses", 0))
-    net_diff = total_income - total_expenses
+    total_installments = float(cs.get("total_installments", 0))
+    net_diff = total_income - total_expenses - total_installments
     
     diff_class = get_amount_class(net_diff)
     formatted_net = format_currency(net_diff, show_sign=True)
@@ -31,11 +32,15 @@ def create_financial_summary_card(cs):
                         dbc.Col([
                             html.Div("Income", className="text-muted x-small fw-bold text-uppercase"),
                             html.Div(f"{total_income:,.2f}", className="fw-bold"),
-                        ]),
+                        ], width=4),
                         dbc.Col([
                             html.Div("Expenses", className="text-muted x-small fw-bold text-uppercase"),
                             html.Div(f"{total_expenses:,.2f}", className="fw-bold"),
-                        ]),
+                        ], width=4),
+                        dbc.Col([
+                            html.Div("Installments", className="text-muted x-small fw-bold text-uppercase"),
+                            html.Div(f"{total_installments:,.2f}", className="fw-bold"),
+                        ], width=4),
                     ], className="mb-3"),
                     
                     html.Hr(className="my-2 opacity-25"),

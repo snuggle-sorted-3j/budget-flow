@@ -11,6 +11,7 @@ from app.models.calculation_period import CalculationPeriod
 from app.models.currency import Currency
 from app.models.expense_item import ExpenseItem
 from app.models.income_entry import IncomeEntry
+from app.models.installment_payment import InstallmentPayment
 from app.models.investment_transfer import InvestmentTransfer
 from app.models.suspended_expense import SuspendedExpense
 from app.schemas.reconciliation import PeriodReconciliation, ReconciliationSummary
@@ -148,10 +149,23 @@ def calculate_reconciliation(
         for s in susp_in:
             total_suspended_in += s.amount
 
-        # j) expected_balance = starting + income - expenses - transfers - susp_out + susp_in
-        expected_balance = starting_balance + total_income - total_expenses - total_transfers - total_suspended_out + total_suspended_in
+        # k) Installment Payments
+        total_installments = Decimal("0.00")
+        inst_payments = db.execute(
+            select(InstallmentPayment).where(
+                InstallmentPayment.calculation_period_id == current_period.id,
+                # InstallmentPayment doesn't have direct currency_id?
+                # It links to InstallmentItem which has currency_id.
+                InstallmentPayment.installment_item.has(currency_id=currency.id)
+            )
+        ).scalars().all()
+        for ip in inst_payments:
+            total_installments += ip.payment_amount
+
+        # l) expected_balance = starting + income - expenses - transfers - susp_out + susp_in - installments
+        expected_balance = starting_balance + total_income - total_expenses - total_transfers - total_suspended_out + total_suspended_in - total_installments
         
-        # h) difference = expected_balance - actual_balance
+        # m) difference = expected_balance - actual_balance
         difference = expected_balance - actual_balance
         is_balanced = (difference == 0)
         
@@ -164,6 +178,7 @@ def calculate_reconciliation(
                 starting_balance=starting_balance,
                 total_income=total_income,
                 total_expenses=total_expenses,
+                total_installments=total_installments,
                 expected_balance=expected_balance,
                 actual_balance=actual_balance,
                 difference=difference,
