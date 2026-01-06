@@ -26,6 +26,7 @@ class IncomeResponse(IncomeBase):
     
     id: UUID
     calculation_period_id: UUID
+    currency_code: str | None = None
     created_at: datetime
     updated_at: datetime
 

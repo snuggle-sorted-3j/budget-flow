@@ -1,26 +1,36 @@
-from dash import Input, Output, State, html
+"""Enhanced Period callbacks with comprehensive error handling and UX improvements."""
+from datetime import datetime
 import dash
+from dash import Input, Output, State, html, ctx, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from dash import dash_table
 
 from utils.api_client import APIClient
+from utils.ui_helpers import create_empty_state, create_toast
+from utils.error_handler import (
+    display_error,
+    display_success,
+    display_warning,
+    validate_required_fields,
+    validate_date,
+    parse_api_error
+)
 
 
 def register_period_callbacks(app):
-    """Register period management callbacks."""
+    """Register period management callbacks with enhanced error handling."""
     
     api_client = APIClient()
 
     @app.callback(
         [
-            Output("period-create-message", "children"),
-            Output("period-create-message", "color"),
-            Output("period-create-message", "is_open"),
+            Output("period-form-alert", "children"),
             Output("period-name-input", "value"),
             Output("period-start-date", "value"),
             Output("period-end-date", "value"),
             Output("period-table-container", "children", allow_duplicate=True),
+            Output("create-period-btn", "disabled"),
+            Output("period-toast-container", "children"),
         ],
         [Input("create-period-btn", "n_clicks")],
         [
@@ -32,85 +42,107 @@ def register_period_callbacks(app):
         prevent_initial_call=True,
     )
     def create_period(n_clicks, period_name, start_date, end_date, session_data):
-        """Handle period creation."""
-        print(f"DEBUG: create_period triggered, n_clicks={n_clicks}, name={period_name}")
+        """Handle period creation with comprehensive validation."""
         if not n_clicks:
             raise PreventUpdate
 
-        # Validate inputs
-        if not period_name or not start_date or not end_date:
-            return (
-                "Please fill in all fields",
-                "warning",
-                True,
-                period_name,
-                start_date,
-                end_date,
-                [],
+        try:
+            # Validate required fields
+            is_valid, errors = validate_required_fields(
+                period_name=period_name,
+                start_date=start_date,
+                end_date=end_date
             )
+            
+            if not is_valid:
+                error_list = [f"{field}: {msg}" for field, msg in errors.items()]
+                return (
+                    display_warning("Please fill all required fields (*): " + ", ".join(error_list)),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+            
+            # Validate start date
+            is_valid, error_msg = validate_date(start_date, allow_future=True, field_name="Start Date")
+            if not is_valid:
+                return (
+                    display_warning(error_msg),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+            
+            # Validate end date
+            is_valid, error_msg = validate_date(end_date, allow_future=True, field_name="End Date")
+            if not is_valid:
+                return (
+                    display_warning(error_msg),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+            
+            # Validate date range
+            if start_date > end_date:
+                return (
+                    display_warning("Start date must be before or equal to end date"),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
 
-        # Validate dates
-        if start_date > end_date:
-            return (
-                "Start date must be before or equal to end date",
-                "danger",
-                True,
-                period_name,
-                start_date,
-                end_date,
-                [],
-            )
+            if not session_data or "token" not in session_data:
+                return (
+                    display_error("Please log in first"),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
 
-        # Get token
-        if not session_data or "token" not in session_data:
-            return (
-                "Please log in first",
-                "danger",
-                True,
-                period_name,
-                start_date,
-                end_date,
-                [],
-            )
+            token = session_data["token"]
+            api_client.set_token(token)
 
-        token = session_data["token"]
-        api_client.set_token(token)
-
-        # Create period (snapshot_date = end_date)
-        response = api_client.post(
-            "/periods/",
-            {
+            # Create period (snapshot_date = end_date)
+            payload = {
                 "period_name": period_name,
                 "start_date": start_date,
                 "end_date": end_date,
                 "snapshot_date": end_date,  # Auto-set as per requirement
-            },
-        )
+            }
 
-        if "error" in response:
-            return (
-                f"Error creating period: {response['error']}",
-                "danger",
-                True,
-                period_name,
-                start_date,
-                end_date,
-                [],
+            response = api_client.post("/periods/", payload)
+
+            if "error" in response or "detail" in response:
+                return (
+                    display_error(response),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+
+            # Success - clear form and refresh table
+            periods_response = api_client.get("/periods/")
+            table = create_period_table(
+                periods_response if isinstance(periods_response, list) else []
             )
 
-        # Success - clear form and refresh table
-        periods_response = api_client.get("/periods/")
-        table = create_period_table(periods_response if "error" not in periods_response else [])
+            toast = create_toast(
+                f"Period '{period_name}' created successfully!",
+                icon="bi-check-circle-fill",
+                color="success"
+            )
 
-        return (
-            f"Period '{period_name}' created successfully!",
-            "success",
-            True,
-            "",  # Clear name
-            "",  # Clear start date
-            "",  # Clear end date
-            table,
-        )
+            return (
+                display_success(f"Period '{period_name}' created successfully!"),
+                "",  # Clear name
+                "",  # Clear start date
+                "",  # Clear end date
+                table,
+                False,
+                toast
+            )
+            
+        except Exception as e:
+            return (
+                display_error(f"Unexpected error: {str(e)}"),
+                dash.no_update, dash.no_update, dash.no_update,
+                dash.no_update, False, None
+            )
 
     @app.callback(
         Output("period-table-container", "children"),
@@ -122,117 +154,173 @@ def register_period_callbacks(app):
             raise PreventUpdate
 
         if not session_data or "token" not in session_data:
-            return html.Div("Please log in to view periods", className="text-muted")
-
-        token = session_data["token"]
-        api_client.set_token(token)
-
-        response = api_client.get("/periods/")
-
-        if "error" in response:
-            return html.Div(
-                f"Error loading periods: {response['error']}", className="text-danger"
+            return create_empty_state(
+                "bi-lock",
+                "Authentication Required",
+                "Please log in to view periods."
             )
 
-        return create_period_table(response)
+        try:
+            token = session_data["token"]
+            api_client.set_token(token)
 
+            response = api_client.get("/periods/")
 
+            if "error" in response:
+                return display_error(response)
+
+            return create_period_table(response)
+            
+        except Exception as e:
+            return display_error(f"Error loading periods: {str(e)}")
+
+    # --- Delete Period with Confirmation ---
     @app.callback(
-        Output("period-table-container", "children", allow_duplicate=True),
-        [Input({"type": "delete-period-btn", "id": dash.ALL}, "n_clicks")],
-        [State("session-store", "data")],
+        [
+            Output("period-delete-modal", "is_open"),
+            Output("period-pending-delete-id", "data"),
+        ],
+        [
+            Input({"type": "delete-period-btn", "index": ALL}, "n_clicks"),
+            Input("period-delete-cancel", "n_clicks"),
+        ],
+        [State("period-delete-modal", "is_open")],
         prevent_initial_call=True
     )
-    def delete_period(n_clicks, session_data):
-        """Handle period deletion."""
-        ctx = dash.callback_context
+    def toggle_delete_modal(delete_clicks, cancel_click, is_open):
+        """Toggle delete confirmation modal."""
         if not ctx.triggered:
             raise PreventUpdate
-            
-        triggered = ctx.triggered[0]
-        # Check if actually clicked (n_clicks > 0)
-        if not triggered["value"]:
+        
+        trig = ctx.triggered_id
+        
+        if trig == "period-delete-cancel":
+            return False, None
+        
+        if isinstance(trig, dict) and trig["type"] == "delete-period-btn":
+            if any(delete_clicks):
+                period_id = trig["index"]
+                return True, period_id
+        
+        return dash.no_update, dash.no_update
+
+    @app.callback(
+        [
+            Output("period-table-container", "children", allow_duplicate=True),
+            Output("period-delete-modal", "is_open", allow_duplicate=True),
+            Output("period-toast-container", "children", allow_duplicate=True),
+        ],
+        [Input("period-delete-confirm", "n_clicks")],
+        [
+            State("period-pending-delete-id", "data"),
+            State("session-store", "data")
+        ],
+        prevent_initial_call=True
+    )
+    def confirm_delete_period(n_clicks, period_id, session_data):
+        """Confirm and execute period deletion."""
+        if not n_clicks or not period_id:
             raise PreventUpdate
-
-        import json
+        
         try:
-            # triggered["prop_id"] is likely like '{"id":"...","type":"..."}.n_clicks'
-            prop_id = triggered["prop_id"].split(".")[0]
-            btn_id = json.loads(prop_id)
-            period_id = btn_id["id"]
-        except:
-             return dash.no_update
-
-        if not session_data or "token" not in session_data:
-            return dash.no_update # Or show error toast?
-
-        api_client.set_token(session_data["token"])
-        
-        # Call delete endpoint (assuming it exists, otherwise we need to add it!)
-        # Backend usually supports DELETE /periods/{id}
-        resp = api_client.delete(f"/periods/{period_id}")
-        
-        # Refresh table
-        periods = api_client.get("/periods/")
-        if "error" in periods:
-            return html.Div(f"Error loading periods: {periods['error']}")
+            api_client.set_token(session_data["token"])
+            result = api_client.delete(f"/periods/{period_id}")
             
-        return create_period_table(periods)
+            if "error" in result or "detail" in result:
+                toast = create_toast(
+                    f"Failed to delete: {parse_api_error(result)}",
+                    icon="bi-x-circle-fill",
+                    color="danger"
+                )
+                return dash.no_update, False, toast
+            
+            # Reload table
+            periods_response = api_client.get("/periods/")
+            table = create_period_table(
+                periods_response if isinstance(periods_response, list) else []
+            )
+            
+            toast = create_toast(
+                "Period deleted successfully",
+                icon="bi-check-circle-fill",
+                color="success"
+            )
+            
+            return table, False, toast
+            
+        except Exception as e:
+            toast = create_toast(
+                f"Error: {str(e)}",
+                icon="bi-x-circle-fill",
+                color="danger"
+            )
+            return dash.no_update, False, toast
 
-from utils.ui_helpers import create_empty_state
 
 def create_period_table(periods):
-    """Create a dbc.Table from periods data."""
+    """Create an enhanced period table with delete functionality."""
     if not periods or len(periods) == 0:
         return create_empty_state(
             "bi-calendar-x",
-            "No periods found",
+            "No Periods Found",
             "Create your first period above to start managing your budget."
         )
 
-    # Sort by start_date descending
-    sorted_periods = sorted(
-        periods, key=lambda x: x.get("start_date", ""), reverse=True
-    )
-
-    rows = []
-    for p in sorted_periods:
-        status_color = "success" if p["status"] == "FINALIZED" else "warning"
-        is_draft = p["status"] == "DRAFT"
-        
-        rows.append(
-            html.Tr([
-                html.Td(p["period_name"], className="fw-bold"),
-                html.Td(p["start_date"]),
-                html.Td(p["end_date"]),
-                html.Td(dbc.Badge(p["status"], color=status_color, className="status-pill")),
-                html.Td(
-                    dbc.Button(
-                        html.I(className="bi bi-trash"),
-                        id={"type": "delete-period-btn", "id": p["id"]},
-                        color="outline-danger",
-                        size="sm",
-                        className="btn-rounded border-0",
-                        disabled=not is_draft, # Only allow deleting drafts?
-                        title="Delete Period (Drafts Only)"
-                    )
-                , className="text-end")
-            ])
+    try:
+        # Sort by start_date descending
+        sorted_periods = sorted(
+            periods, key=lambda x: x.get("start_date", ""), reverse=True
         )
 
-    return dbc.Table(
-        [
-            html.Thead(html.Tr([
-                html.Th("Period Name"),
-                html.Th("Start Date"),
-                html.Th("End Date"),
-                html.Th("Status"),
-                html.Th("Actions", className="text-end"),
-            ])),
-            html.Tbody(rows)
-        ],
-        bordered=False,
-        hover=True,
-        responsive=True,
-        className="align-middle custom-table"
-    )
+        rows = []
+        for p in sorted_periods:
+            status = p.get("status", "DRAFT")
+            status_color = "success" if status == "FINALIZED" else "warning"
+            is_draft = status == "DRAFT"
+            
+            rows.append(
+                html.Tr([
+                    html.Td(p.get("period_name", ""), className="fw-bold"),
+                    html.Td(p.get("start_date", "")),
+                    html.Td(p.get("end_date", "")),
+                    html.Td(
+                        dbc.Badge(
+                            status,
+                            color=status_color,
+                            className="px-3 py-2"
+                        )
+                    ),
+                    html.Td(
+                        dbc.Button(
+                            html.I(className="bi bi-trash"),
+                            id={"type": "delete-period-btn", "index": p.get("id", "")},
+                            size="sm",
+                            color="link",
+                            className="text-danger p-0",
+                            disabled=not is_draft,  # Only allow deleting drafts
+                            title="Delete Period (Drafts Only)" if is_draft else "Cannot delete finalized period"
+                        ),
+                        className="text-center"
+                    )
+                ])
+            )
+
+        return dbc.Table(
+            [
+                html.Thead(html.Tr([
+                    html.Th("Period Name"),
+                    html.Th("Start Date"),
+                    html.Th("End Date"),
+                    html.Th("Status"),
+                    html.Th("Actions", className="text-center"),
+                ])),
+                html.Tbody(rows)
+            ],
+            hover=True,
+            responsive=True,
+            className="align-middle"
+        )
+        
+    except Exception as e:
+        print(f"Error creating period table: {e}")
+        return display_error(f"Error displaying period data: {str(e)}")

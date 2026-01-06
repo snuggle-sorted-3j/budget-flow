@@ -54,6 +54,11 @@ class IncomeEntry(Base):
     period: Mapped["CalculationPeriod"] = relationship(back_populates="income_entries")
     currency: Mapped["Currency"] = relationship(back_populates="income_entries")
 
+    @property
+    def currency_code(self) -> str:
+        """Helper to get currency ticker."""
+        return self.currency.ticker if self.currency else ""
+
     __table_args__ = (
         CheckConstraint("amount >= 0", name="positive_income_amount"),
         Index("idx_income_period", "calculation_period_id"),

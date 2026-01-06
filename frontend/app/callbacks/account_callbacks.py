@@ -1,198 +1,358 @@
-from dash import Input, Output, State, html, dash_table
+"""Enhanced Account callbacks with comprehensive error handling and UX improvements."""
 from datetime import datetime
+import dash
+from dash import Input, Output, State, html, ctx, ALL
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
+
 from utils.api_client import APIClient
-from utils.ui_helpers import create_empty_state
-import dash
-import json
+from utils.ui_helpers import create_empty_state, format_currency, create_toast
+from utils.error_handler import (
+    display_error,
+    display_success,
+    display_warning,
+    validate_required_fields,
+    validate_date,
+    parse_api_error
+)
 
-def create_accounts_table(accounts):
-    """Create a polished dbc.Table from accounts list."""
-    if not accounts or len(accounts) == 0:
-        return create_empty_state(
-            "bi-bank",
-            "No accounts found",
-            "Add your bank accounts or cash wallets to start tracking."
-        )
-
-    rows = []
-    for a in accounts:
-        acc_id = a["id"]
-        rows.append(
-            html.Tr([
-                html.Td(a["account_name"], className="fw-bold"),
-                html.Td(a["account_type"]),
-                html.Td(a.get("currency_ticker", "")),
-                html.Td(f"{float(a.get('opening_balance', 0)):,.2f}"),
-                html.Td("Active" if a["is_active"] else "Inactive", 
-                        className="text-success" if a["is_active"] else "text-muted"),
-                html.Td([
-                    dbc.Button(
-                        html.I(className="bi bi-trash"),
-                        id={"type": "delete-account-btn", "id": acc_id},
-                        color="outline-danger",
-                        size="sm",
-                        className="btn-rounded border-0"
-                    )
-                ], className="text-end")
-            ])
-        )
-
-    return dbc.Table(
-        [
-            html.Thead(html.Tr([
-                html.Th("Account"),
-                html.Th("Type"),
-                html.Th("Currency"),
-                html.Th("Opening Bal"),
-                html.Th("Status"),
-                html.Th("Action", className="text-end"),
-            ])),
-            html.Tbody(rows)
-        ],
-        bordered=False,
-        hover=True,
-        responsive=True,
-        className="align-middle custom-table"
-    )
 
 def register_account_callbacks(app):
+    """Register account management callbacks with enhanced error handling."""
+    
     api_client = APIClient()
 
-    # --- 1. Load Data (Accounts & Currencies) ---
     @app.callback(
         [
             Output("account-table-container", "children"),
-            Output("account-currency-select", "options"), 
+            Output("account-currency-select", "options"),
             Output("account-currency-select", "value"),
         ],
         [
             Input("url", "pathname"),
-            Input("inv-trigger-refresh", "data") # Listen to global refresh trigger
+            Input("account-refresh-trigger", "data"),
+            Input("session-store", "data")
         ],
-        [State("session-store", "data")],
     )
     def load_accounts_data(pathname, refresh_trigger, session_data):
+        """Load accounts and currencies when navigating to the accounts page."""
         if not session_data or "token" not in session_data:
-            return html.Div("Please log in"), [], None
+            return (
+                create_empty_state(
+                    "bi-lock",
+                    "Authentication Required",
+                    "Please log in to view accounts."
+                ),
+                [],
+                None
+            )
 
-        api_client.set_token(session_data["token"])
+        try:
+            token = session_data["token"]
+            api_client.set_token(token)
 
-        # Fetch Currencies
-        currencies = api_client.get("/currencies/")
-        if not currencies or (isinstance(currencies, list) and len(currencies) == 0):
-             # Initialize if needed
-             api_client.post("/currencies/initialize", {})
-             currencies = api_client.get("/currencies/")
-        
-        currency_options = []
-        currency_map = {}
-        default_curr = None
-        
-        if currencies and "error" not in currencies:
-            currency_options = [{"label": c["ticker"], "value": c["id"]} for c in currencies]
-            for c in currencies:
-                currency_map[c["id"]] = c["ticker"]
-                if c.get("is_default"): default_curr = c["id"]
-            if not default_curr and currencies: default_curr = currencies[0]["id"]
-
-        # Fetch Accounts
-        accounts = api_client.get("/accounts/")
-        
-        table = html.Div("Error loading accounts")
-        if "error" not in accounts:
-            for acc in accounts:
-                acc["currency_ticker"] = currency_map.get(acc["currency_id"], "Unknown")
-            table = create_accounts_table(accounts)
+            # Fetch Currencies
+            currencies_response = api_client.get("/currencies/")
             
-        return table, currency_options, default_curr
+            # Auto-initialize if empty
+            if isinstance(currencies_response, list) and len(currencies_response) == 0:
+                api_client.post("/currencies/initialize", {})
+                currencies_response = api_client.get("/currencies/")
+            
+            currency_options = []
+            currency_map = {}
+            default_curr = None
+            
+            if isinstance(currencies_response, list):
+                for c in currencies_response:
+                    ticker = c.get('ticker', '')
+                    curr_id = c.get('id', '')
+                    currency_options.append({
+                        "label": f"{ticker} - {c.get('name', '')}",
+                        "value": curr_id
+                    })
+                    currency_map[curr_id] = ticker
+                    if c.get("is_default"):
+                        default_curr = curr_id
+                
+                if not default_curr and currency_options:
+                    default_curr = currency_options[0]["value"]
 
-    # --- 2. Add Account ---
+            # Fetch Accounts
+            accounts_response = api_client.get("/accounts/")
+            
+            if "error" in accounts_response:
+                return display_error(accounts_response), currency_options, default_curr
+            
+            # Enrich accounts with currency ticker
+            if isinstance(accounts_response, list):
+                for acc in accounts_response:
+                    acc["currency_ticker"] = currency_map.get(acc.get("currency_id"), "Unknown")
+            
+            table = create_accounts_table(accounts_response)
+            
+            return table, currency_options, default_curr
+            
+        except Exception as e:
+            return (
+                display_error(f"Error loading accounts: {str(e)}"),
+                [],
+                None
+            )
+
     @app.callback(
         [
-            Output("account-message", "children"), 
-            Output("account-message", "color"), 
-            Output("account-message", "is_open"),
-            Output("account-name-input", "value"), 
+            Output("account-form-alert", "children"),
+            Output("account-name-input", "value"),
             Output("account-opening-balance", "value"),
             Output("account-opening-date", "value"),
-            Output("inv-trigger-refresh", "data", allow_duplicate=True),
+            Output("account-refresh-trigger", "data"),
+            Output("add-account-btn", "disabled"),
+            Output("account-toast-container", "children"),
         ],
         [Input("add-account-btn", "n_clicks")],
         [
-            State("account-name-input", "value"), 
-            State("account-type-select", "value"), 
-            State("account-currency-select", "value"), 
+            State("account-name-input", "value"),
+            State("account-type-select", "value"),
+            State("account-currency-select", "value"),
             State("account-opening-balance", "value"),
-            State("account-opening-date", "value"), 
+            State("account-opening-date", "value"),
             State("session-store", "data")
         ],
         prevent_initial_call=True
     )
     def add_account(n_clicks, name, atype, currency_id, opening_balance, opening_date, session_data):
-        if not n_clicks: raise PreventUpdate
-        
-        if not session_data or "token" not in session_data:
-            return "Please log in first", "danger", True, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        """Handle adding account with comprehensive validation."""
+        if not n_clicks:
+            raise PreventUpdate
 
-        if not name or not currency_id:
-             return "Please fill all fields", "warning", True, dash.no_update, dash.no_update, dash.no_update, dash.no_update
-
-        api_client.set_token(session_data["token"])
-        
-        opening_bal_val = float(opening_balance) if opening_balance is not None else 0.0
-        opening_date_val = opening_date if opening_date else datetime.now().date().isoformat()
-        
-        resp = api_client.post("/accounts/", {
-            "account_name": name, 
-            "account_type": atype, 
-            "currency_id": currency_id,
-            "opening_balance": opening_bal_val,
-            "opening_balance_date": opening_date_val
-        })
-        
-        if "error" in resp:
-            return f"Error: {resp['error']}", "danger", True, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        try:
+            # Validate required fields
+            is_valid, errors = validate_required_fields(
+                account_name=name,
+                currency=currency_id
+            )
             
-        # Success: Clear inputs, return success msg, update trigger
-        return (
-            f"Account {name} added!", "success", True, 
-            "", 0, datetime.now().date().isoformat(), # Clear inputs
-            datetime.now().timestamp() # Trigger refresh
-        )
+            if not is_valid:
+                error_list = [f"{field}: {msg}" for field, msg in errors.items()]
+                return (
+                    display_warning("Please fill all required fields (*): " + ", ".join(error_list)),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+            
+            # Validate opening date if provided
+            if opening_date:
+                is_valid, error_msg = validate_date(opening_date, allow_future=False, field_name="Opening Date")
+                if not is_valid:
+                    return (
+                        display_warning(error_msg),
+                        dash.no_update, dash.no_update, dash.no_update,
+                        dash.no_update, False, None
+                    )
 
-    # --- 3. Delete Account ---
+            if not session_data or "token" not in session_data:
+                return (
+                    display_error("Please log in first"),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+
+            token = session_data["token"]
+            api_client.set_token(token)
+
+            # Prepare payload
+            opening_bal_val = float(opening_balance) if opening_balance is not None else 0.0
+            opening_date_val = opening_date if opening_date else datetime.now().date().isoformat()
+            
+            payload = {
+                "account_name": name,
+                "account_type": atype,
+                "currency_id": currency_id,
+                "opening_balance": opening_bal_val,
+                "opening_balance_date": opening_date_val
+            }
+
+            response = api_client.post("/accounts/", payload)
+
+            if "error" in response or "detail" in response:
+                return (
+                    display_error(response),
+                    dash.no_update, dash.no_update, dash.no_update,
+                    dash.no_update, False, None
+                )
+
+            # Success - clear form
+            toast = create_toast(
+                f"Account '{name}' added successfully!",
+                icon="bi-check-circle-fill",
+                color="success"
+            )
+
+            return (
+                display_success(f"Account '{name}' added successfully!"),
+                "",  # Clear name
+                0,   # Reset balance
+                datetime.now().date().isoformat(),  # Reset date
+                datetime.now().timestamp(),  # Trigger refresh
+                False,
+                toast
+            )
+            
+        except Exception as e:
+            return (
+                display_error(f"Unexpected error: {str(e)}"),
+                dash.no_update, dash.no_update, dash.no_update,
+                dash.no_update, False, None
+            )
+
+    # --- Delete Account with Confirmation ---
     @app.callback(
         [
-            Output("account-message", "children", allow_duplicate=True),
-            Output("account-message", "color", allow_duplicate=True),
-            Output("account-message", "is_open", allow_duplicate=True),
-            Output("inv-trigger-refresh", "data", allow_duplicate=True),
+            Output("account-delete-modal", "is_open"),
+            Output("account-pending-delete-id", "data"),
         ],
-        [Input({"type": "delete-account-btn", "id": dash.ALL}, "n_clicks")],
-        [State("session-store", "data")],
+        [
+            Input({"type": "delete-account-btn", "index": ALL}, "n_clicks"),
+            Input("account-delete-cancel", "n_clicks"),
+        ],
+        [State("account-delete-modal", "is_open")],
         prevent_initial_call=True
     )
-    def delete_account(n_clicks, session_data):
-        ctx = dash.callback_context
-        if not ctx.triggered or not any(n_clicks):
+    def toggle_delete_modal(delete_clicks, cancel_click, is_open):
+        """Toggle delete confirmation modal."""
+        if not ctx.triggered:
             raise PreventUpdate
-
-        triggered_prop = ctx.triggered[0]["prop_id"]
-        try:
-            prop_dict = json.loads(triggered_prop.split(".")[0])
-            account_id = prop_dict["id"]
-        except:
-            raise PreventUpdate
-
-        if not session_data or "token" not in session_data:
-            return "Please log in first", "danger", True, dash.no_update
-
-        api_client.set_token(session_data["token"])
-        response = api_client.delete(f"/accounts/{account_id}")
         
-        if "error" in response:
-            return f"{response['error']}", "danger", True, dash.no_update
+        trig = ctx.triggered_id
+        
+        if trig == "account-delete-cancel":
+            return False, None
+        
+        if isinstance(trig, dict) and trig["type"] == "delete-account-btn":
+            if any(delete_clicks):
+                account_id = trig["index"]
+                return True, account_id
+        
+        return dash.no_update, dash.no_update
+
+    @app.callback(
+        [
+            Output("account-refresh-trigger", "data", allow_duplicate=True),
+            Output("account-delete-modal", "is_open", allow_duplicate=True),
+            Output("account-toast-container", "children", allow_duplicate=True),
+        ],
+        [Input("account-delete-confirm", "n_clicks")],
+        [
+            State("account-pending-delete-id", "data"),
+            State("session-store", "data")
+        ],
+        prevent_initial_call=True
+    )
+    def confirm_delete_account(n_clicks, account_id, session_data):
+        """Confirm and execute account deletion."""
+        if not n_clicks or not account_id:
+            raise PreventUpdate
+        
+        try:
+            api_client.set_token(session_data["token"])
+            result = api_client.delete(f"/accounts/{account_id}")
             
-        return "Account deleted successfully", "success", True, datetime.now().timestamp()
+            if "error" in result or "detail" in result:
+                toast = create_toast(
+                    f"Failed to delete: {parse_api_error(result)}",
+                    icon="bi-x-circle-fill",
+                    color="danger"
+                )
+                return dash.no_update, False, toast
+            
+            toast = create_toast(
+                "Account deleted successfully",
+                icon="bi-check-circle-fill",
+                color="success"
+            )
+            
+            return datetime.now().timestamp(), False, toast
+            
+        except Exception as e:
+            toast = create_toast(
+                f"Error: {str(e)}",
+                icon="bi-x-circle-fill",
+                color="danger"
+            )
+            return dash.no_update, False, toast
+
+
+def create_accounts_table(accounts):
+    """Create an enhanced accounts table with delete functionality."""
+    if not accounts or len(accounts) == 0:
+        return create_empty_state(
+            "bi-bank",
+            "No Accounts Found",
+            "Add your bank accounts or cash wallets to start tracking."
+        )
+
+    try:
+        rows = []
+        for a in accounts:
+            acc_id = a.get("id", "")
+            is_active = a.get("is_active", True)
+            
+            rows.append(
+                html.Tr([
+                    html.Td(a.get("account_name", ""), className="fw-bold"),
+                    html.Td(
+                        dbc.Badge(
+                            a.get("account_type", ""),
+                            color="info",
+                            className="px-3 py-2"
+                        )
+                    ),
+                    html.Td(a.get("currency_ticker", "")),
+                    html.Td(
+                        format_currency(
+                            a.get('opening_balance', 0),
+                            currency_ticker=a.get("currency_ticker", "")
+                        )
+                    ),
+                    html.Td(
+                        dbc.Badge(
+                            "Active" if is_active else "Inactive",
+                            color="success" if is_active else "secondary",
+                            className="px-3 py-2"
+                        )
+                    ),
+                    html.Td(
+                        dbc.Button(
+                            html.I(className="bi bi-trash"),
+                            id={"type": "delete-account-btn", "index": acc_id},
+                            size="sm",
+                            color="link",
+                            className="text-danger p-0",
+                            title="Delete account"
+                        ),
+                        className="text-center"
+                    )
+                ])
+            )
+
+        return dbc.Table(
+            [
+                html.Thead(html.Tr([
+                    html.Th("Account"),
+                    html.Th("Type"),
+                    html.Th("Currency"),
+                    html.Th("Opening Balance"),
+                    html.Th("Status"),
+                    html.Th("Actions", className="text-center"),
+                ])),
+                html.Tbody(rows)
+            ],
+            hover=True,
+            responsive=True,
+            className="align-middle"
+        )
+        
+    except Exception as e:
+        print(f"Error creating accounts table: {e}")
+        return display_error(f"Error displaying account data: {str(e)}")

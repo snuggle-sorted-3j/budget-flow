@@ -29,6 +29,8 @@ class ExpenseResponse(ExpenseBase):
     
     id: UUID
     calculation_period_id: UUID
+    category_name: str | None = None
+    currency_code: str | None = None
     created_at: datetime
     updated_at: datetime
 

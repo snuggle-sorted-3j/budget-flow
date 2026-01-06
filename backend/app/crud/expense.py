@@ -2,7 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.expense_item import ExpenseItem
 from app.schemas.expense import ExpenseCreate
@@ -21,11 +21,14 @@ def create_expense(db: Session, period_id: UUID, data: ExpenseCreate) -> Expense
 
 
 def list_expenses_for_period(db: Session, period_id: UUID) -> List[ExpenseItem]:
-    """List all expense entries for a period."""
-    stmt = select(ExpenseItem).where(
+    """List all expense entries for a period with joined relationships."""
+    stmt = select(ExpenseItem).options(
+        joinedload(ExpenseItem.category),
+        joinedload(ExpenseItem.currency)
+    ).where(
         ExpenseItem.calculation_period_id == period_id
     ).order_by(ExpenseItem.expense_date.desc())
-    return list(db.execute(stmt).scalars().all())
+    return list(db.execute(stmt).scalars().unique().all())
 
 
 def get_expense(db: Session, expense_id: UUID) -> Optional[ExpenseItem]:

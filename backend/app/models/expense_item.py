@@ -61,6 +61,16 @@ class ExpenseItem(Base):
     category: Mapped["ExpenseCategory"] = relationship(back_populates="expense_items")
     currency: Mapped["Currency"] = relationship(back_populates="expense_items")
 
+    @property
+    def category_name(self) -> str:
+        """Helper to get category name without nested access in frontend or schema logic."""
+        return self.category.category_name if self.category else "Uncategorized"
+
+    @property
+    def currency_code(self) -> str:
+        """Helper to get currency ticker."""
+        return self.currency.ticker if self.currency else ""
+
     __table_args__ = (
         CheckConstraint("amount >= 0", name="positive_expense_amount"),
         CheckConstraint(

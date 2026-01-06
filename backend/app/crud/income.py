@@ -2,7 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.income_entry import IncomeEntry
 from app.schemas.income import IncomeCreate
@@ -21,11 +21,13 @@ def create_income(db: Session, period_id: UUID, data: IncomeCreate) -> IncomeEnt
 
 
 def list_incomes_for_period(db: Session, period_id: UUID) -> List[IncomeEntry]:
-    """List all income entries for a period."""
-    stmt = select(IncomeEntry).where(
+    """List all income entries for a period with joined relationships."""
+    stmt = select(IncomeEntry).options(
+        joinedload(IncomeEntry.currency)
+    ).where(
         IncomeEntry.calculation_period_id == period_id
     ).order_by(IncomeEntry.income_date.desc())
-    return list(db.execute(stmt).scalars().all())
+    return list(db.execute(stmt).scalars().unique().all())
 
 
 def get_income(db: Session, income_id: UUID) -> Optional[IncomeEntry]:

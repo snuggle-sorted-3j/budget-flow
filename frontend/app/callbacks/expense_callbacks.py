@@ -61,15 +61,23 @@ def register_expense_callbacks(app):
                     default_currency_id = currency_options[0]["value"]
             
             # Load categories
-            categories_response = api_client.get("/categories/")
-            category_options = []
+            categories_response = api_client.get("/expense-categories/")
             
+            # Auto-initialize if empty (to ensure first-time users see options)
+            if isinstance(categories_response, list) and len(categories_response) == 0:
+                print("No categories found, initializing...")
+                api_client.post("/expense-categories/initialize", {})
+                categories_response = api_client.get("/expense-categories/")
+            
+            category_options = []
             if isinstance(categories_response, list):
                 for cat in categories_response:
                     category_options.append({
-                        "label": cat.get('name', ''),
+                        "label": cat.get('category_name', ''),
                         "value": cat.get('id', '')
                     })
+            elif isinstance(categories_response, dict) and "error" in categories_response:
+                print(f"Error loading categories: {parse_api_error(categories_response)}")
 
             return {"display": "block"}, currency_options, default_currency_id, category_options
             
