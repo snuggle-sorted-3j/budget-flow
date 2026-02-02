@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop, master]
+    branches: [ "**" ]
   pull_request:
-    branches: [main, master]
+    branches: [ "**" ]
 
 env:
   PYTHON_VERSION: '3.11'
@@ -48,7 +48,7 @@ jobs:
           cd backend
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov httpx
+          pip install pytest pytest-cov httpx sqlalchemy psycopg2-binary pydantic-settings python-multipart python-jose[cryptography] passlib[bcrypt] bcrypt alembic python-dotenv pytest-mock pytest-asyncio pytest-anyio typing-extensions requests anyio sniffio idna certifi urllib3 charset-normalizer
       
       - name: Run Unit Tests
         env:
