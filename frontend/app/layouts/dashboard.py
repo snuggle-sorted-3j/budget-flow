@@ -19,8 +19,14 @@ def create_dashboard_layout(user_email: str = "User"):
             dbc.Nav(
                 [
                     dbc.NavLink(
-                        [html.I(className="bi bi-speedometer2 me-3"), "Overview"],
+                        [html.I(className="bi bi-speedometer2 me-3"), "Dashboard"],
                         href="/dashboard",
+                        active="exact",
+                        className="px-3"
+                    ),
+                    dbc.NavLink(
+                        [html.I(className="bi bi-bar-chart-line me-3"), "Advanced Analytics"],
+                        href="/dashboard/analytics-advanced",
                         active="exact",
                         className="px-3"
                     ),

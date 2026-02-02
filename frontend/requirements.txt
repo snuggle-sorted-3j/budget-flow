@@ -2,4 +2,6 @@ dash
 dash-bootstrap-components
 plotly
 requests
+numpy
+pandas
 

@@ -18,8 +18,10 @@ BudgetFlow is a personal finance tracking and reconciliation system with:
 1. **Separation of Concerns**: Backend API (FastAPI) separate from frontend UI (Dash)
 2. **Modular Design**: Each feature in its own module with clear boundaries
 3. **Type Safety**: Use Python type hints everywhere, enforced by mypy
-4. **Test-Driven**: Write tests alongside features, maintain >80% coverage
-5. **Security-First**: JWT auth, bcrypt passwords, input validation with Pydantic
+4. **Test-Driven Development (TDD)**: Mandatory. Write unit/integration tests BEFORE implementing logic.
+5. **Full Test Validation**: Always run the ENTRE test suite (`pytest backend/tests/ -v`) before assuming a task is complete. Never skip integration tests.
+6. **Security-First**: JWT auth, bcrypt passwords, input validation with Pydantic.
+7. **Zero-Broken-Frontend**: Ensure all Dash components and callbacks Target existing IDs. Check for ID mismatches after layout changes.
 
 ## File Organization
 
