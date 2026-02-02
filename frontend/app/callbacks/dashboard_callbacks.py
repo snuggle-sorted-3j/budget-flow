@@ -1,3 +1,4 @@
+import dash
 from dash import Input, Output, State, html, dcc, dash_table
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
@@ -26,24 +27,30 @@ def register_dashboard_home_callbacks(app):
         if not session_data or "token" not in session_data:
             return [], None, None
 
-        api_client.set_token(session_data["token"])
-        periods = api_client.get("/periods/")
-        
-        if "error" in periods or not periods:
-            return [], None, None
-
-        options = [
-            {"label": p["period_name"], "value": p["id"]} 
-            for p in sorted(periods, key=lambda x: x["start_date"], reverse=True)
-        ]
-        
-        # Determine value: existing store > first in list
-        if current_p_id and any(o["value"] == current_p_id for o in options):
-            val = current_p_id
-        else:
-            val = options[0]["value"] if options else None
+        try:
+            api_client.set_token(session_data["token"])
+            periods = api_client.get("/periods/")
             
-        return options, val, val
+            if "error" in periods:
+                return [], None, None
+            
+            if not periods:
+                return [], None, None
+
+            options = [
+                {"label": p["period_name"], "value": p["id"]} 
+                for p in sorted(periods, key=lambda x: x["start_date"], reverse=True)
+            ]
+            
+            # Determine value: existing store > first in list
+            if current_p_id and any(o["value"] == current_p_id for o in options):
+                val = current_p_id
+            else:
+                val = options[0]["value"] if options else None
+                
+            return options, val, val
+        except Exception:
+            return [], None, None
 
     @app.callback(
         Output("current-period-id", "data", allow_duplicate=True),
@@ -68,7 +75,7 @@ def register_dashboard_home_callbacks(app):
             Input("url", "pathname"),
             Input("recon-trigger-store", "data"),
         ],
-        [State("session-store", "data")]
+        [State("session-store", "data")],
     )
     def update_dashboard_home(period_id, pathname, recon_trigger, session_data):
         """Update all home sections when period changes or navigating to home."""
@@ -79,44 +86,53 @@ def register_dashboard_home_callbacks(app):
         if not session_data or "token" not in session_data:
             return html.Div("Please log in"), html.Div(), html.Div(), html.Div()
 
-        api_client.set_token(session_data["token"])
-        
-        # Fetch All Periods first to check if user has any data
-        all_periods = api_client.get("/periods/")
-        
-        if not all_periods or (isinstance(all_periods, list) and len(all_periods) == 0):
-            welcome_alert = dbc.Alert(
-                [
-                    html.H4("Welcome to BudgetFlow!", className="alert-heading"),
-                    html.P("Your currencies have been pre-initialized and you're ready to go."),
-                    html.Hr(),
-                    html.P("Create your first account and period to get started.", className="mb-0"),
-                ],
-                color="info",
-                className="mb-4 shadow-sm py-4",
+        try:
+            api_client.set_token(session_data["token"])
+            
+            # Fetch All Periods first to check if user has any data
+            all_periods = api_client.get("/periods/")
+            
+            if isinstance(all_periods, dict) and "error" in all_periods:
+                err_msg = html.Div(f"Error: {all_periods['error']}", className="text-danger")
+                return err_msg, html.Div(), html.Div(), html.Div()
+
+            if not all_periods or (isinstance(all_periods, list) and len(all_periods) == 0):
+                welcome_alert = dbc.Alert(
+                    [
+                        html.H4("Welcome to BudgetFlow!", className="alert-heading"),
+                        html.P("Your currencies have been pre-initialized and you're ready to go."),
+                        html.Hr(),
+                        html.P("Create your first account and period to get started.", className="mb-0"),
+                    ],
+                    color="info",
+                    className="mb-4 shadow-sm py-4",
+                )
+                return welcome_alert, html.Div(), html.Div(), html.Div()
+
+            if not period_id:
+                msg = html.Div("Select a period in the header to view details")
+                return msg, html.Div(), html.Div(), html.Div()
+            
+            # 1. Fetch Period Details
+            period = api_client.get(f"/periods/{period_id}")
+            
+            # 2. Fetch Reconciliation / Financial Summary
+            recon = api_client.get(f"/periods/{period_id}/reconciliation")
+
+            # 3. Fetch Data for Quick Stats (Accounts, Incomes, Expenses)
+            accounts = api_client.get("/accounts/")
+            incomes = api_client.get(f"/periods/{period_id}/incomes")
+            expenses = api_client.get(f"/periods/{period_id}/expenses")
+            
+            return (
+                create_overview_section(period),
+                create_financial_summary_section(recon),
+                create_quick_stats_section(accounts, incomes, expenses, period),
+                create_period_list_table(all_periods, period_id)
             )
-            return welcome_alert, html.Div(), html.Div(), html.Div()
-
-        if not period_id:
-            return html.Div("Select a period in the header to view details"), html.Div(), html.Div(), html.Div()
-        
-        # 1. Fetch Period Details
-        period = api_client.get(f"/periods/{period_id}")
-        
-        # 2. Fetch Reconciliation / Financial Summary
-        recon = api_client.get(f"/periods/{period_id}/reconciliation")
-
-        # 3. Fetch Data for Quick Stats (Accounts, Incomes, Expenses)
-        accounts = api_client.get("/accounts/")
-        incomes = api_client.get(f"/periods/{period_id}/incomes")
-        expenses = api_client.get(f"/periods/{period_id}/expenses")
-        
-        return (
-            create_overview_section(period),
-            create_financial_summary_section(recon),
-            create_quick_stats_section(accounts, incomes, expenses, period),
-            create_period_list_table(all_periods, period_id)
-        )
+        except Exception as e:
+            err_msg = html.Div(f"Unexpected error: {str(e)}", className="text-danger")
+            return err_msg, html.Div(), html.Div(), html.Div()
 
     # Callback to handle row clicks in the period list table
     @app.callback(

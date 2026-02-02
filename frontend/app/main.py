@@ -16,6 +16,7 @@ from callbacks.investment_callbacks import register_investment_callbacks
 from callbacks.suspended_callbacks import register_suspended_callbacks
 from callbacks.installment_callbacks import register_installment_callbacks
 from callbacks.conversion_callbacks import register_conversion_callbacks
+from callbacks.template_callbacks import register_template_callbacks
 from layouts.login import create_login_layout
 from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
@@ -31,6 +32,7 @@ from tabs.tab7_investments import create_investments_tab_layout
 from tabs.tab4_suspended import create_suspended_tab_layout
 from tabs.tab9_installments import create_installments_tab_layout
 from tabs.tab10_conversions import create_conversions_tab_layout
+from tabs.tab11_templates import create_templates_tab_layout
 
 # Initialize Dash app
 app = dash.Dash(
@@ -50,6 +52,7 @@ app.layout = html.Div(
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="session-store", storage_type="session"),
         dcc.Store(id="user-store", storage_type="session"),
+        dcc.Store(id="auth-error-trigger", storage_type="memory"),
         html.Div(id="page-content"),
     ]
 )
@@ -70,6 +73,7 @@ register_investment_callbacks(app)
 register_suspended_callbacks(app)
 register_installment_callbacks(app)
 register_conversion_callbacks(app)
+register_template_callbacks(app)
 
 
 @app.callback(
@@ -138,6 +142,8 @@ def render_dashboard_content(pathname):
         return create_installments_tab_layout()
     elif pathname == "/dashboard/conversions":
         return create_conversions_tab_layout()
+    elif pathname == "/dashboard/templates":
+        return create_templates_tab_layout()
     
     # Default to dashboard home
     return create_dashboard_home_layout()

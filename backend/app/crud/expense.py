@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.expense_item import ExpenseItem
-from app.schemas.expense import ExpenseCreate
+from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 
 
 def create_expense(db: Session, period_id: UUID, data: ExpenseCreate) -> ExpenseItem:
@@ -45,3 +45,17 @@ def delete_expense(db: Session, expense_id: UUID) -> bool:
     db.delete(expense)
     db.commit()
     return True
+
+
+def update_expense(
+    db: Session, db_obj: ExpenseItem, obj_in: ExpenseCreate
+) -> ExpenseItem:
+    """Update an expense entry."""
+    update_data = obj_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
+    
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

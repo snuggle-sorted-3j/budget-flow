@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.income_entry import IncomeEntry
-from app.schemas.income import IncomeCreate
+from app.schemas.income import IncomeCreate, IncomeUpdate
 
 
 def create_income(db: Session, period_id: UUID, data: IncomeCreate) -> IncomeEntry:
@@ -44,3 +44,18 @@ def delete_income(db: Session, income_id: UUID) -> bool:
     db.delete(income)
     db.commit()
     return True
+
+
+def update_income(
+    db: Session, db_obj: IncomeEntry, obj_in: IncomeCreate  # Should typically handle Update schema too but simpler for now
+) -> IncomeEntry:
+    """Update an income entry."""
+    # We can use model_dump(exclude_unset=True) from Pydantic
+    update_data = obj_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
+    
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

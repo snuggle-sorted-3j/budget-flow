@@ -145,6 +145,22 @@ def create_expenses_tab_layout():
                                                 ],
                                                 className="mb-3",
                                             ),
+                                            dbc.Row(
+                                                [
+                                                    dbc.Col(
+                                                        [
+                                                            dbc.Checkbox(
+                                                                id="expense-is-recurring",
+                                                                label="Recurring Expense",
+                                                                value=False,
+                                                            ),
+                                                            html.Small("(e.g., rent, subscriptions)", className="text-muted d-block ms-4"),
+                                                        ],
+                                                        md=12,
+                                                    ),
+                                                ],
+                                                className="mb-3",
+                                            ),
                                             dbc.Button(
                                                 [
                                                     dbc.Spinner(

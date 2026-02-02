@@ -170,7 +170,7 @@ def register_conversion_callbacks(app):
             Output("conv-to-amount", "value", allow_duplicate=True),
             Output("conv-rate", "value", allow_duplicate=True),
             Output("conv-notes", "value"),
-            Output("conv-trigger-refresh", "data", allow_duplicate=True),
+            Output("conv-trigger-refresh", "data"),
             Output("add-conv-btn", "disabled"),
             Output("conv-toast-container", "children"),
         ],

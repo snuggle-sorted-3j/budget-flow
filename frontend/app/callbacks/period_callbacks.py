@@ -31,17 +31,19 @@ def register_period_callbacks(app):
             Output("period-table-container", "children", allow_duplicate=True),
             Output("create-period-btn", "disabled"),
             Output("period-toast-container", "children"),
+            Output("auth-error-trigger", "data", allow_duplicate=True),
         ],
         [Input("create-period-btn", "n_clicks")],
         [
             State("period-name-input", "value"),
             State("period-start-date", "value"),
             State("period-end-date", "value"),
+            State("period-apply-template-check", "value"),
             State("session-store", "data"),
         ],
         prevent_initial_call=True,
     )
-    def create_period(n_clicks, period_name, start_date, end_date, session_data):
+    def create_period(n_clicks, period_name, start_date, end_date, apply_template, session_data):
         """Handle period creation with comprehensive validation."""
         if not n_clicks:
             raise PreventUpdate
@@ -59,7 +61,7 @@ def register_period_callbacks(app):
                 return (
                     display_warning("Please fill all required fields (*): " + ", ".join(error_list)),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, dash.no_update
                 )
             
             # Validate start date
@@ -68,7 +70,7 @@ def register_period_callbacks(app):
                 return (
                     display_warning(error_msg),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, dash.no_update
                 )
             
             # Validate end date
@@ -77,7 +79,7 @@ def register_period_callbacks(app):
                 return (
                     display_warning(error_msg),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, dash.no_update
                 )
             
             # Validate date range
@@ -85,14 +87,14 @@ def register_period_callbacks(app):
                 return (
                     display_warning("Start date must be before or equal to end date"),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, dash.no_update
                 )
 
             if not session_data or "token" not in session_data:
                 return (
                     display_error("Please log in first"),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, datetime.now().timestamp()
                 )
 
             token = session_data["token"]
@@ -109,11 +111,26 @@ def register_period_callbacks(app):
             response = api_client.post("/periods/", payload)
 
             if "error" in response or "detail" in response:
+                auth_error = response.get("error") == "AUTHENTICATION_ERROR"
                 return (
                     display_error(response),
                     dash.no_update, dash.no_update, dash.no_update,
-                    dash.no_update, False, None
+                    dash.no_update, False, None, 
+                    datetime.now().timestamp() if auth_error else dash.no_update
                 )
+
+            period_id = response.get("id")
+            template_msg = ""
+            
+            # Auto-apply default template if requested
+            if apply_template and period_id:
+                templates = api_client.get("/templates/")
+                if isinstance(templates, list):
+                    default_tpl = next((t for t in templates if t.get("is_default")), None)
+                    if default_tpl:
+                        apply_res = api_client.post(f"/templates/{default_tpl['id']}/apply", {"target_period_id": period_id})
+                        if "error" not in apply_res:
+                            template_msg = f" (Applied template: {default_tpl['template_name']})"
 
             # Success - clear form and refresh table
             periods_response = api_client.get("/periods/")
@@ -122,19 +139,20 @@ def register_period_callbacks(app):
             )
 
             toast = create_toast(
-                f"Period '{period_name}' created successfully!",
+                f"Period '{period_name}' created successfully!{template_msg}",
                 icon="bi-check-circle-fill",
                 color="success"
             )
 
             return (
-                display_success(f"Period '{period_name}' created successfully!"),
+                display_success(f"Period '{period_name}' created successfully!{template_msg}"),
                 "",  # Clear name
                 "",  # Clear start date
                 "",  # Clear end date
                 table,
                 False,
-                toast
+                toast,
+                dash.no_update
             )
             
         except Exception as e:
@@ -209,13 +227,14 @@ def register_period_callbacks(app):
             Output("period-table-container", "children", allow_duplicate=True),
             Output("period-delete-modal", "is_open", allow_duplicate=True),
             Output("period-toast-container", "children", allow_duplicate=True),
+            Output("auth-error-trigger", "data", allow_duplicate=True),
         ],
         [Input("period-delete-confirm", "n_clicks")],
         [
             State("period-pending-delete-id", "data"),
             State("session-store", "data")
         ],
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def confirm_delete_period(n_clicks, period_id, session_data):
         """Confirm and execute period deletion."""
@@ -227,12 +246,13 @@ def register_period_callbacks(app):
             result = api_client.delete(f"/periods/{period_id}")
             
             if "error" in result or "detail" in result:
+                auth_error = result.get("error") == "AUTHENTICATION_ERROR"
                 toast = create_toast(
                     f"Failed to delete: {parse_api_error(result)}",
                     icon="bi-x-circle-fill",
                     color="danger"
                 )
-                return dash.no_update, False, toast
+                return dash.no_update, False, toast, datetime.now().timestamp() if auth_error else dash.no_update
             
             # Reload table
             periods_response = api_client.get("/periods/")
@@ -246,7 +266,7 @@ def register_period_callbacks(app):
                 color="success"
             )
             
-            return table, False, toast
+            return table, False, toast, dash.no_update
             
         except Exception as e:
             toast = create_toast(
@@ -254,7 +274,7 @@ def register_period_callbacks(app):
                 icon="bi-x-circle-fill",
                 color="danger"
             )
-            return dash.no_update, False, toast
+            return dash.no_update, False, toast, dash.no_update
 
 
 def create_period_table(periods):

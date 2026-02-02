@@ -92,6 +92,12 @@ def create_dashboard_layout(user_email: str = "User"):
                         active="exact",
                         className="px-3"
                     ),
+                    dbc.NavLink(
+                        [html.I(className="bi bi-layers-half me-3"), "Templates"],
+                        href="/dashboard/templates",
+                        active="exact",
+                        className="px-3"
+                    ),
                 ],
                 vertical=True,
                 pills=True,

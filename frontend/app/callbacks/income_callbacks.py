@@ -78,10 +78,12 @@ def register_income_callbacks(app):
             Output("income-date", "value"),
             Output("income-notes", "value"),
             Output("income-tax-applicable", "value"),
+            Output("income-is-recurring", "value"),
             Output("income-table-container", "children", allow_duplicate=True),
             Output("recon-trigger-store", "data", allow_duplicate=True),
             Output("add-income-btn", "disabled"),
             Output("income-toast-container", "children"),
+            Output("auth-error-trigger", "data", allow_duplicate=True),
         ],
         [Input("add-income-btn", "n_clicks")],
         [
@@ -92,12 +94,13 @@ def register_income_callbacks(app):
             State("income-date", "value"),
             State("income-notes", "value"),
             State("income-tax-applicable", "value"),
+            State("income-is-recurring", "value"),
             State("session-store", "data"),
         ],
         prevent_initial_call=True,
     )
     def add_income(n_clicks, period_id, source_name, amount, currency_id, income_date, 
-                   notes, tax_applicable, session_data):
+                   notes, tax_applicable, is_recurring, session_data):
         """Handle adding income with comprehensive validation."""
         if not n_clicks:
             raise PreventUpdate
@@ -117,7 +120,7 @@ def register_income_callbacks(app):
                     display_warning("Please fill all required fields (*): " + ", ".join(error_list)),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, dash.no_update
                 )
             
             # Validate amount is positive
@@ -127,7 +130,7 @@ def register_income_callbacks(app):
                     display_warning(error_msg),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, dash.no_update
                 )
             
             # Validate date if provided
@@ -138,7 +141,7 @@ def register_income_callbacks(app):
                         display_warning(error_msg),
                         dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                         dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                        False, None
+                        False, None, dash.no_update
                     )
 
             if not session_data or "token" not in session_data:
@@ -146,7 +149,7 @@ def register_income_callbacks(app):
                     display_error("Please log in first"),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, datetime.now().timestamp()
                 )
 
             token = session_data["token"]
@@ -158,6 +161,7 @@ def register_income_callbacks(app):
                 "amount": float(amount),
                 "currency_id": currency_id,
                 "tax_applicable": tax_applicable or False,
+                "is_recurring": is_recurring or False,
             }
             
             if income_date:
@@ -168,11 +172,12 @@ def register_income_callbacks(app):
             response = api_client.post(f"/periods/{period_id}/incomes", payload)
 
             if "error" in response or "detail" in response:
+                auth_error = response.get("error") == "AUTHENTICATION_ERROR"
                 return (
                     display_error(response),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, datetime.now().timestamp() if auth_error else dash.no_update
                 )
 
             # Success - clear form and refresh table
@@ -196,11 +201,13 @@ def register_income_callbacks(app):
                 dash.no_update,  # Keep current currency
                 "",  # Clear date
                 "",  # Clear notes
-                False,  # Reset checkbox
+                False,  # Reset tax checkbox
+                False,  # Reset recurring checkbox
                 table,
                 datetime.now().timestamp(),
                 False,
-                toast
+                toast,
+                dash.no_update
             )
             
         except Exception as e:
@@ -208,7 +215,7 @@ def register_income_callbacks(app):
                 display_error(f"Unexpected error: {str(e)}"),
                 dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                 dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                False, None
+                False, None, dash.no_update
             )
 
     @app.callback(
@@ -242,7 +249,11 @@ def register_income_callbacks(app):
             if "error" in response:
                 return display_error(response)
 
-            return create_income_table(response, period_id, api_client)
+            return create_income_table(
+                response if isinstance(response, list) else [], 
+                period_id, 
+                api_client
+            )
             
         except Exception as e:
             return display_error(f"Error loading income: {str(e)}")
@@ -348,7 +359,10 @@ def create_income_table(income_entries, period_id, api_client):
         rows = []
         for entry in income_entries:
             rows.append(html.Tr([
-                html.Td(entry.get("source_name", ""), className="fw-bold"),
+                html.Td([
+                    entry.get("source_name", ""),
+                    html.I(className="bi bi-arrow-repeat ms-2 text-primary", title="Recurring") if entry.get("is_recurring") else None
+                ], className="fw-bold"),
                 html.Td(
                     format_currency(entry.get('amount', 0), currency_ticker=entry.get("currency_code", "")),
                     className="text-success fw-bold"

@@ -131,7 +131,18 @@ def create_income_tab_layout():
                                                                 value=False,
                                                             ),
                                                         ],
-                                                        md=4,
+                                                        md=6,
+                                                    ),
+                                                    dbc.Col(
+                                                        [
+                                                            dbc.Checkbox(
+                                                                id="income-is-recurring",
+                                                                label="Recurring Income",
+                                                                value=False,
+                                                            ),
+                                                            html.Small("(e.g., monthly salary)", className="text-muted d-block ms-4"),
+                                                        ],
+                                                        md=6,
                                                     ),
                                                 ],
                                                 className="mb-3",

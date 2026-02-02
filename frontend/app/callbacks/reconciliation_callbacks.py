@@ -72,8 +72,8 @@ def register_reconciliation_callbacks(app):
             Output("recon-content-container", "style"),
             Output("snapshot-date-display", "children"),
             Output("snapshots-table-container", "children"),
-            Output("recon-summary-container", "children", allow_duplicate=True),
-            Output("recon-balanced-store", "data", allow_duplicate=True),
+            Output("recon-summary-container", "children"),
+            Output("recon-balanced-store", "data"),
         ],
         [Input("current-period-id", "data"), Input("session-store", "data")],
         prevent_initial_call=True,
@@ -211,7 +211,7 @@ def register_reconciliation_callbacks(app):
         return "Snapshots saved successfully!", "success", True
 
     @app.callback(
-        Output("recon-trigger-store", "data", allow_duplicate=True),
+        Output("recon-trigger-store", "data"),
         [Input("save-snapshots-btn", "n_clicks")],
         prevent_initial_call=True
     )

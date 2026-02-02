@@ -14,11 +14,24 @@ class IncomeBase(BaseModel):
     income_date: date | None = None
     tax_applicable: bool = False
     notes: str | None = None
+    is_recurring: bool = False
 
 
 class IncomeCreate(IncomeBase):
     """Schema for creating an IncomeEntry."""
     pass
+
+
+class IncomeUpdate(BaseModel):
+    """Schema for updating an IncomeEntry."""
+    
+    source_name: str | None = Field(None, max_length=255)
+    amount: Decimal | None = Field(None, ge=0)
+    currency_id: UUID | None = None
+    income_date: date | None = None
+    tax_applicable: bool | None = None
+    notes: str | None = None
+    is_recurring: bool | None = None
 
 
 class IncomeResponse(IncomeBase):

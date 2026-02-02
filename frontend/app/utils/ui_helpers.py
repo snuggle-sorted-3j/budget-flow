@@ -108,6 +108,9 @@ def create_toast(message, icon="bi-check-circle-fill", color="success"):
         icon: Bootstrap icon class
         color: Toast color (success, danger, warning, info)
     """
+    if not message:
+        return None
+        
     return dbc.Toast(
         [
             html.I(className=f"{icon} me-2"),

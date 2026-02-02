@@ -104,7 +104,7 @@ def convert_suspended_to_expense(
         is_tax_deductible=False,
         notes=f"Converted from suspended: {expense.notes or ''}"
     )
-    crud_expense.create_expense_item(db, period_id, expense_create)
+    crud_expense.create_expense(db, period_id, expense_create)
     
     # Mark suspended as converted
     update_in = SuspendedExpenseUpdate(status="CONVERTED_TO_EXPENSE")

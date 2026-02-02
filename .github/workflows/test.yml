@@ -1,0 +1,167 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ============================================
+  # Unit & Integration Tests
+  # ============================================
+  test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: budget_flow_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements*.txt'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
+      
+      - name: Run Unit Tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/budget_flow_test
+          JWT_SECRET: test-secret-key-for-github-actions-1234567890
+          ENVIRONMENT: testing
+        run: |
+          cd backend
+          pytest tests/unit -v --tb=short --cov=app --cov-report=xml --cov-report=term-missing
+      
+      - name: Run Integration Tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/budget_flow_test
+          JWT_SECRET: test-secret-key-for-github-actions-1234567890
+          ENVIRONMENT: testing
+        run: |
+          cd backend
+          pytest tests/integration -v --tb=short --cov=app --cov-append --cov-report=xml
+      
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: backend/coverage.xml
+          flags: backend
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  # ============================================
+  # End-to-End Tests (only on main/develop)
+  # ============================================
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: test  # Only run if unit/integration tests pass
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Create .env file
+        run: |
+          echo "DB_PASSWORD=postgres" > .env
+          echo "JWT_SECRET=e2e-test-secret-key-1234567890" >> .env
+      
+      - name: Start services
+        run: |
+          docker-compose up -d --build
+          sleep 30  # Wait for services to be ready
+      
+      - name: Check service health
+        run: |
+          docker-compose ps
+          curl -f http://localhost:8000/api/v1/system/health || exit 1
+      
+      - name: Install Playwright
+        run: |
+          pip install pytest-playwright pytest
+          playwright install chromium --with-deps
+      
+      - name: Run E2E Tests
+        run: |
+          pytest tests/e2e -v --tb=short
+      
+      - name: Collect Docker logs on failure
+        if: failure()
+        run: |
+          docker-compose logs backend
+          docker-compose logs frontend
+      
+      - name: Stop services
+        if: always()
+        run: docker-compose down -v
+
+  # ============================================
+  # Code Quality Checks
+  # ============================================
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install linters
+        run: |
+          pip install black isort flake8 mypy
+      
+      - name: Check formatting with Black
+        run: |
+          cd backend
+          black --check --diff app tests
+        continue-on-error: true
+      
+      - name: Check import sorting with isort
+        run: |
+          cd backend
+          isort --check-only --diff app tests
+        continue-on-error: true
+      
+      - name: Run flake8
+        run: |
+          cd backend
+          flake8 app --max-line-length=100 --ignore=E501,W503
+        continue-on-error: true

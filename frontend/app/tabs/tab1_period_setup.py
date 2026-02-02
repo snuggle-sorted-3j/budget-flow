@@ -98,6 +98,22 @@ def create_period_tab_layout():
                                         ],
                                         className="mb-3",
                                     ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                [
+                                                    dbc.Checkbox(
+                                                        id="period-apply-template-check",
+                                                        label="Apply default template to this period (if exists)",
+                                                        value=True,
+                                                        className="small text-muted",
+                                                    ),
+                                                ],
+                                                md=12,
+                                            ),
+                                        ],
+                                        className="mb-4",
+                                    ),
                                     dbc.Button(
                                         [
                                             dbc.Spinner(

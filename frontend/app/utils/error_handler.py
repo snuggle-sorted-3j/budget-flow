@@ -35,7 +35,10 @@ def parse_api_error(response):
             return str(response["message"])
     
     if isinstance(response, str):
-        return response
+        if response.strip():
+            return response
+        else:
+            return "An unspecified error occurred."
     
     return "An unexpected error occurred. Please try again."
 

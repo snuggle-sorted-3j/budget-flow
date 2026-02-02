@@ -44,6 +44,7 @@ class IncomeEntry(Base):
     income_date: Mapped[date | None] = mapped_column(Date)
     tax_applicable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    is_recurring: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[object] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
     )
