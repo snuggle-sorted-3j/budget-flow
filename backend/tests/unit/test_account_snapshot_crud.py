@@ -62,3 +62,55 @@ def test_list_snapshots_for_period(db: Session, test_user: User, test_currency: 
     snapshots = list_snapshots_for_period(db, period.id)
     assert len(snapshots) == 1
     assert snapshots[0].account_id == acc.id
+
+def test_snapshot_update_replaces_existing(db: Session, test_user: User, test_currency: Currency):
+    """Test: Upserting snapshot twice updates the existing record instead of creating new one."""
+    period = create_period(db, test_user.id, PeriodCreate(
+        period_name="Update Test", start_date=date(2026, 2, 1), end_date=date(2026, 2, 28), snapshot_date=date(2026, 2, 28)
+    ))
+    acc = create_account(db, test_user.id, AccountCreate(
+        account_name="Acc", account_type="CASH", currency_id=test_currency.id
+    ))
+    
+    # First insert
+    s1 = upsert_snapshot(db, period.id, acc.id, Decimal("100.00"))
+    
+    # Second insert (update)
+    s2 = upsert_snapshot(db, period.id, acc.id, Decimal("200.00"))
+    
+    assert s1.id == s2.id
+    assert s2.balance == Decimal("200.00")
+    
+    # Verify count
+    snapshots = list_snapshots_for_period(db, period.id)
+    assert len(snapshots) == 1
+
+def test_snapshot_with_zero_balance(db: Session, test_user: User, test_currency: Currency):
+    """Test: Snapshot allows zero balance."""
+    period = create_period(db, test_user.id, PeriodCreate(
+        period_name="Zero Test", start_date=date(2026, 3, 1), end_date=date(2026, 3, 31), snapshot_date=date(2026, 3, 31)
+    ))
+    acc = create_account(db, test_user.id, AccountCreate(
+        account_name="Zero Acc", account_type="CASH", currency_id=test_currency.id
+    ))
+    
+    s = upsert_snapshot(db, period.id, acc.id, Decimal("0.00"))
+    assert s.balance == Decimal("0.00")
+
+def test_snapshot_for_inactive_account(db: Session, test_user: User, test_currency: Currency):
+    """Test: Can create snapshot even for inactive account (historical record preservation)."""
+    period = create_period(db, test_user.id, PeriodCreate(
+        period_name="Inactive Test", start_date=date(2026, 4, 1), end_date=date(2026, 4, 30), snapshot_date=date(2026, 4, 30)
+    ))
+    acc = create_account(db, test_user.id, AccountCreate(
+        account_name="Inactive Acc", account_type="CASH", currency_id=test_currency.id
+    ))
+    
+    # Deactivate account (using direct update provided in crud or model manipulation)
+    acc.is_active = False
+    db.commit()
+    
+    # Should still succeed
+    s = upsert_snapshot(db, period.id, acc.id, Decimal("500.00"))
+    assert s.balance == Decimal("500.00")
+

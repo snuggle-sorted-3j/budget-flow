@@ -106,3 +106,25 @@ def test_cannot_delete_category_with_expenses(
     del_resp = client.delete(f"/api/v1/expense-categories/{cat_id}", headers=auth_headers)
     assert del_resp.status_code == 400
     assert "existing expenses" in del_resp.json()["detail"]
+def test_soft_delete_cascade(client: TestClient, auth_headers: Dict[str, str]):
+    # 1. Create Parent
+    p_resp = client.post("/api/v1/expense-categories/", json={"category_name": "Parent"}, headers=auth_headers)
+    p_id = p_resp.json()["id"]
+
+    # 2. Create Child
+    c_resp = client.post("/api/v1/expense-categories/", json={"category_name": "Child", "parent_category_id": p_id}, headers=auth_headers)
+    c_id = c_resp.json()["id"]
+
+    # 3. Deactivate Parent
+    client.delete(f"/api/v1/expense-categories/{p_id}", headers=auth_headers)
+
+    # 4. Verify Child is also inactive
+    list_resp = client.get("/api/v1/expense-categories/", headers=auth_headers)
+    active_ids = [c["id"] for c in list_resp.json()]
+    assert p_id not in active_ids
+    assert c_id not in active_ids
+
+    # 5. Verify Child is inactive in DB
+    list_all_resp = client.get("/api/v1/expense-categories/?include_inactive=true", headers=auth_headers)
+    inactive_child = next(c for c in list_all_resp.json() if c["id"] == c_id)
+    assert inactive_child["is_active"] is False
