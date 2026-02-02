@@ -60,12 +60,17 @@ def update_category(db: Session, user_id: UUID, category_id: UUID, data: Expense
 
 
 def deactivate_category(db: Session, user_id: UUID, category_id: UUID) -> Optional[ExpenseCategory]:
-    """Soft delete an expense category."""
+    """Soft delete an expense category and its children."""
     category = get_category(db, user_id, category_id)
     if not category:
         return None
         
     category.is_active = False
+    
+    # Also deactivate children
+    for child in category.children:
+        child.is_active = False
+        
     db.commit()
     db.refresh(category)
     return category

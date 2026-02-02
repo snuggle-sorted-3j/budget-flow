@@ -63,19 +63,34 @@ def register_expense_callbacks(app):
             # Load categories
             categories_response = api_client.get("/expense-categories/")
             
-            # Auto-initialize if empty (to ensure first-time users see options)
+            # Auto-initialize if empty
             if isinstance(categories_response, list) and len(categories_response) == 0:
-                print("No categories found, initializing...")
                 api_client.post("/expense-categories/initialize", {})
                 categories_response = api_client.get("/expense-categories/")
             
             category_options = []
             if isinstance(categories_response, list):
-                for cat in categories_response:
+                # Build hierarchical options
+                parents = [c for c in categories_response if not c.get("parent_category_id")]
+                children_map = {}
+                for c in categories_response:
+                    pid = c.get("parent_category_id")
+                    if pid:
+                        if pid not in children_map:
+                            children_map[pid] = []
+                        children_map[pid].append(c)
+                
+                for p in sorted(parents, key=lambda x: x.get("category_name", "")):
                     category_options.append({
-                        "label": cat.get('category_name', ''),
-                        "value": cat.get('id', '')
+                        "label": f"📁 {p['category_name']}",
+                        "value": p["id"]
                     })
+                    children = children_map.get(p["id"], [])
+                    for child in sorted(children, key=lambda x: x.get("category_name", "")):
+                        category_options.append({
+                            "label": f"   └─ {child['category_name']}",
+                            "value": child["id"]
+                        })
             elif isinstance(categories_response, dict) and "error" in categories_response:
                 print(f"Error loading categories: {parse_api_error(categories_response)}")
 
@@ -98,6 +113,7 @@ def register_expense_callbacks(app):
             Output("recon-trigger-store", "data", allow_duplicate=True),
             Output("add-expense-btn", "disabled"),
             Output("expense-toast-container", "children"),
+            Output("auth-error-trigger", "data", allow_duplicate=True),
         ],
         [Input("add-expense-btn", "n_clicks")],
         [
@@ -108,12 +124,13 @@ def register_expense_callbacks(app):
             State("expense-currency", "value"),
             State("expense-date", "value"),
             State("expense-notes", "value"),
+            State("expense-is-recurring", "value"),
             State("session-store", "data"),
         ],
         prevent_initial_call=True,
     )
     def add_expense(n_clicks, period_id, category_id, item_name, amount, currency_id,
-                    expense_date, notes, session_data):
+                    expense_date, notes, is_recurring, session_data):
         """Handle adding expense with comprehensive validation."""
         if not n_clicks:
             raise PreventUpdate
@@ -134,7 +151,7 @@ def register_expense_callbacks(app):
                     display_warning("Please fill all required fields (*): " + ", ".join(error_list)),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, dash.no_update
                 )
             
             # Validate amount is positive
@@ -144,7 +161,7 @@ def register_expense_callbacks(app):
                     display_warning(error_msg),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, dash.no_update
                 )
             
             # Validate date if provided
@@ -155,7 +172,7 @@ def register_expense_callbacks(app):
                         display_warning(error_msg),
                         dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                         dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                        False, None
+                        False, None, dash.no_update
                     )
 
             if not session_data or "token" not in session_data:
@@ -163,7 +180,7 @@ def register_expense_callbacks(app):
                     display_error("Please log in first"),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, datetime.now().timestamp()
                 )
 
             token = session_data["token"]
@@ -175,6 +192,7 @@ def register_expense_callbacks(app):
                 "item_name": item_name,
                 "amount": float(amount),
                 "currency_id": currency_id,
+                "is_recurring": is_recurring or False,
             }
             
             if expense_date:
@@ -185,11 +203,12 @@ def register_expense_callbacks(app):
             response = api_client.post(f"/periods/{period_id}/expenses", payload)
 
             if "error" in response or "detail" in response:
+                auth_error = response.get("error") == "AUTHENTICATION_ERROR"
                 return (
                     display_error(response),
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                     dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                    False, None
+                    False, None, datetime.now().timestamp() if auth_error else dash.no_update
                 )
 
             # Success - clear form and refresh table
@@ -214,10 +233,12 @@ def register_expense_callbacks(app):
                 dash.no_update,  # Keep currency
                 "",  # Clear date
                 "",  # Clear notes
+                False,  # Reset recurring checkbox
                 table,
                 datetime.now().timestamp(),
                 False,
-                toast
+                toast,
+                dash.no_update
             )
             
         except Exception as e:
@@ -225,7 +246,7 @@ def register_expense_callbacks(app):
                 display_error(f"Unexpected error: {str(e)}"),
                 dash.no_update, dash.no_update, dash.no_update, dash.no_update,
                 dash.no_update, dash.no_update, dash.no_update, dash.no_update,
-                False, None
+                False, None, dash.no_update
             )
 
     @app.callback(
@@ -259,7 +280,11 @@ def register_expense_callbacks(app):
             if "error" in response:
                 return display_error(response)
 
-            return create_expense_table(response, period_id, api_client)
+            return create_expense_table(
+                response if isinstance(response, list) else [], 
+                period_id, 
+                api_client
+            )
             
         except Exception as e:
             return display_error(f"Error loading expenses: {str(e)}")
@@ -372,7 +397,10 @@ def create_expense_table(expense_entries, period_id, api_client):
                         className="me-1"
                     )
                 ),
-                html.Td(entry.get("item_name", ""), className="fw-bold"),
+                html.Td([
+                    entry.get("item_name", ""),
+                    html.I(className="bi bi-arrow-repeat ms-2 text-primary", title="Recurring") if entry.get("is_recurring") else None
+                ], className="fw-bold"),
                 html.Td(
                     format_currency(entry.get('amount', 0), currency_ticker=entry.get("currency_code", "")),
                     className="text-danger fw-bold"

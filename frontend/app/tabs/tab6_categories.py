@@ -24,14 +24,21 @@ def create_categories_tab_layout():
                                             dbc.Label("Category Name"),
                                             dbc.Input(id="category-name-input", type="text", placeholder="e.g., Groceries, Rent"),
                                         ],
-                                        md=8,
+                                        md=5,
                                     ),
                                     dbc.Col(
                                         [
-                                            dbc.Label("Icon / Notes"),
-                                            dbc.Input(id="category-description-input", type="text", placeholder="e.g. 🏠 or 'Monthly Bills'"),
+                                            dbc.Label("Parent Category (Optional)"),
+                                            dbc.Select(id="category-parent-input", options=[]),
                                         ],
                                         md=4,
+                                    ),
+                                    dbc.Col(
+                                        [
+                                            dbc.Label("Icon"),
+                                            dbc.Input(id="category-description-input", type="text", placeholder="e.g. 🏠"),
+                                        ],
+                                        md=3,
                                     ),
                                 ],
                                 className="mb-3",
