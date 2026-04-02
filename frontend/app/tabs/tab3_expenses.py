@@ -13,6 +13,14 @@ def create_expenses_tab_layout():
             
             # Store for pending deletion
             dcc.Store(id="expense-pending-delete-id"),
+            # Auto-save draft store
+            dcc.Store(id="expense-draft-store", storage_type="session"),
+            # Auto-save indicator
+            html.Div(
+                id="expense-autosave-indicator",
+                className="text-muted small text-end mb-1",
+                style={"minHeight": "20px"},
+            ),
             
             # Add Expense Form (hidden until period selected)
             html.Div(

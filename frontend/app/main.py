@@ -19,6 +19,7 @@ from callbacks.conversion_callbacks import register_conversion_callbacks
 from callbacks.template_callbacks import register_template_callbacks
 from callbacks.analytics_callbacks import register_analytics_callbacks
 from callbacks.analytics_advanced_callbacks import register_analytics_advanced_callbacks
+from callbacks.autosave_callbacks import register_autosave_callbacks
 from layouts.login import create_login_layout
 from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
@@ -79,6 +80,7 @@ register_conversion_callbacks(app)
 register_template_callbacks(app)
 register_analytics_callbacks(app)
 register_analytics_advanced_callbacks(app)
+register_autosave_callbacks(app)
 
 
 @app.callback(

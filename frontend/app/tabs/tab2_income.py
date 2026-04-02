@@ -13,6 +13,14 @@ def create_income_tab_layout():
             
             # Store for pending deletion
             dcc.Store(id="income-pending-delete-id"),
+            # Auto-save draft store (session storage keeps data on tab switch)
+            dcc.Store(id="income-draft-store", storage_type="session"),
+            # Auto-save indicator
+            html.Div(
+                id="income-autosave-indicator",
+                className="text-muted small text-end mb-1",
+                style={"minHeight": "20px"},
+            ),
             
             # Add Income Form (hidden until period selected)
             html.Div(
