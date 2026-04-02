@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -31,5 +31,29 @@ class PeriodReconciliation(BaseModel):
     status: str
     reconciliations: List[ReconciliationSummary]
     overall_balanced: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeductibleItem(BaseModel):
+    """A single tax-deductible expense item."""
+
+    item_name: str
+    amount: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaxBenefitsResult(BaseModel):
+    """Tax benefit calculation result for a period."""
+
+    tax_system: str
+    tax_rate: Decimal
+    taxable_income: Decimal
+    deductible_expenses: Decimal
+    net_taxable_income: Decimal
+    estimated_tax: Decimal
+    tax_savings: Decimal
+    deductible_items: List[DeductibleItem]
 
     model_config = ConfigDict(from_attributes=True)

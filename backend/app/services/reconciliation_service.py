@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -15,7 +15,8 @@ from app.models.installment_payment import InstallmentPayment
 from app.models.investment_transfer import InvestmentTransfer
 from app.models.suspended_expense import SuspendedExpense
 from app.models.currency_conversion import CurrencyConversion
-from app.schemas.reconciliation import PeriodReconciliation, ReconciliationSummary
+from app.models.user_settings import UserSettings
+from app.schemas.reconciliation import PeriodReconciliation, ReconciliationSummary, TaxBenefitsResult
 
 
 def calculate_reconciliation(
@@ -224,3 +225,88 @@ def calculate_reconciliation(
         reconciliations=reconciliations,
         overall_balanced=overall_balanced,
     )
+
+
+def calculate_tax_benefits(
+    db: Session, user_id: UUID, period_id: UUID
+) -> Optional[Dict[str, Any]]:
+    """
+    Calculate B2B tax benefits for a period based on user tax settings.
+
+    Returns None when tax_system is NONE or settings are missing.
+    Otherwise returns a dict with taxable income, deductible expenses,
+    estimated tax obligation, and tax savings from deductibles.
+
+    Args:
+        db: Database session
+        user_id: Authenticated user's UUID
+        period_id: UUID of the calculation period
+
+    Returns:
+        Dict with tax benefit breakdown, or None if not applicable.
+    """
+    # 1. Verify period belongs to user
+    period = db.execute(
+        select(CalculationPeriod).where(
+            CalculationPeriod.id == period_id,
+            CalculationPeriod.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if not period:
+        return None
+
+    # 2. Load user settings
+    settings = db.execute(
+        select(UserSettings).where(UserSettings.user_id == user_id)
+    ).scalar_one_or_none()
+    if not settings or settings.tax_system == "NONE":
+        return None
+
+    tax_rate = settings.tax_rate  # e.g. Decimal("19.00")
+    rate_fraction = tax_rate / Decimal("100")
+
+    # 3. Sum tax-applicable income for this period
+    incomes = db.execute(
+        select(IncomeEntry).where(
+            IncomeEntry.calculation_period_id == period_id,
+        )
+    ).scalars().all()
+
+    taxable_income = Decimal("0.00")
+    for inc in incomes:
+        if inc.tax_applicable:
+            taxable_income += inc.amount
+
+    # 4. Sum tax-deductible expenses, collect item list
+    expenses = db.execute(
+        select(ExpenseItem).where(
+            ExpenseItem.calculation_period_id == period_id,
+        )
+    ).scalars().all()
+
+    deductible_expenses = Decimal("0.00")
+    deductible_items: List[Dict[str, Any]] = []
+    for exp in expenses:
+        if exp.is_tax_deductible:
+            deductible_expenses += exp.amount
+            deductible_items.append({"item_name": exp.item_name, "amount": exp.amount})
+
+    # 5. Net taxable income (clamped to 0 — no negative tax)
+    net_taxable = max(taxable_income - deductible_expenses, Decimal("0.00"))
+
+    # 6. Estimated tax obligation on net taxable
+    estimated_tax = (net_taxable * rate_fraction).quantize(Decimal("0.01"))
+
+    # 7. Tax savings: what deductibles saved you
+    tax_savings = (deductible_expenses * rate_fraction).quantize(Decimal("0.01"))
+
+    return {
+        "tax_system": settings.tax_system,
+        "tax_rate": tax_rate,
+        "taxable_income": taxable_income,
+        "deductible_expenses": deductible_expenses,
+        "net_taxable_income": net_taxable,
+        "estimated_tax": estimated_tax,
+        "tax_savings": tax_savings,
+        "deductible_items": deductible_items,
+    }

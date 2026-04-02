@@ -356,3 +356,108 @@ def register_reconciliation_callbacks(app):
             "success",
             True,
         )
+
+    @app.callback(
+        Output("tax-benefits-container", "children"),
+        [Input("current-period-id", "data"), Input("session-store", "data")],
+        prevent_initial_call=True,
+    )
+    def load_tax_benefits(period_id, session_data):
+        """Load and display tax benefits panel when B2B tax system is active."""
+        if not period_id or not session_data or "token" not in session_data:
+            return []
+
+        token = session_data["token"]
+        api_client.set_token(token)
+
+        response = api_client.get(f"/periods/{period_id}/tax-benefits")
+
+        # 204 / not applicable → hide section
+        if not response or "error" in response or response.get("tax_system") == "NONE":
+            return []
+
+        tax_system = response.get("tax_system", "")
+        tax_rate = response.get("tax_rate", 0)
+        taxable_income = float(response.get("taxable_income", 0))
+        deductible_expenses = float(response.get("deductible_expenses", 0))
+        net_taxable = float(response.get("net_taxable_income", 0))
+        estimated_tax = float(response.get("estimated_tax", 0))
+        tax_savings = float(response.get("tax_savings", 0))
+        deductible_items = response.get("deductible_items", [])
+
+        # Build deductible items table rows
+        item_rows = []
+        for item in deductible_items:
+            item_rows.append(
+                html.Tr([
+                    html.Td(item.get("item_name", "")),
+                    html.Td(f"{float(item.get('amount', 0)):,.2f}", className="text-end"),
+                ])
+            )
+
+        items_table = html.Div()
+        if item_rows:
+            items_table = dbc.Table(
+                [
+                    html.Thead(html.Tr([html.Th("Deductible Expense"), html.Th("Amount", className="text-end")])),
+                    html.Tbody(item_rows),
+                ],
+                bordered=True,
+                size="sm",
+                className="mt-3",
+            )
+        else:
+            items_table = dbc.Alert("No tax-deductible expenses this period.", color="light", className="mt-3")
+
+        system_label = {"POLISH_B2B": "Polish B2B", "US_ANNUAL": "US Annual"}.get(tax_system, tax_system)
+
+        return dbc.Card(
+            [
+                dbc.CardHeader(
+                    html.H4([
+                        html.I(className="bi bi-calculator me-2"),
+                        f"Tax Summary ({system_label} — {tax_rate}%)",
+                    ])
+                ),
+                dbc.CardBody([
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Card([
+                                dbc.CardBody([
+                                    html.P("Taxable Income", className="text-muted small mb-1"),
+                                    html.H5(f"{taxable_income:,.2f}", className="text-success"),
+                                ])
+                            ], className="text-center"),
+                        ], md=3),
+                        dbc.Col([
+                            dbc.Card([
+                                dbc.CardBody([
+                                    html.P("Deductible Expenses", className="text-muted small mb-1"),
+                                    html.H5(f"−{deductible_expenses:,.2f}", className="text-primary"),
+                                ])
+                            ], className="text-center"),
+                        ], md=3),
+                        dbc.Col([
+                            dbc.Card([
+                                dbc.CardBody([
+                                    html.P("Estimated Tax", className="text-muted small mb-1"),
+                                    html.H5(f"{estimated_tax:,.2f}", className="text-danger"),
+                                ])
+                            ], className="text-center"),
+                        ], md=3),
+                        dbc.Col([
+                            dbc.Card([
+                                dbc.CardBody([
+                                    html.P("Tax Savings", className="text-muted small mb-1"),
+                                    html.H5(f"{tax_savings:,.2f}", className="text-warning"),
+                                ])
+                            ], className="text-center"),
+                        ], md=3),
+                    ], className="mb-3"),
+                    html.Hr(),
+                    html.H6("Deductible Items", className="mb-2"),
+                    items_table,
+                ]),
+            ],
+            className="mb-4 shadow-sm border-primary",
+        )

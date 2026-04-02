@@ -28,6 +28,8 @@ class APIClient:
             if response.status_code == 401:
                 return {"error": "AUTHENTICATION_ERROR", "detail": "Session expired or invalid credentials"}
             response.raise_for_status()
+            if response.status_code == 204 or not response.text:
+                return {}
             return response.json()
         except requests.exceptions.RequestException as e:
             return self._handle_error(e)
@@ -37,6 +39,20 @@ class APIClient:
         try:
             url = f"{self.base_url}{endpoint}"
             response = requests.post(
+                url, json=data, headers=self._get_headers(), timeout=10
+            )
+            if response.status_code == 401:
+                return {"error": "AUTHENTICATION_ERROR", "detail": "Session expired or invalid credentials"}
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return self._handle_error(e)
+
+    def put(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Make a PUT request to the API."""
+        try:
+            url = f"{self.base_url}{endpoint}"
+            response = requests.put(
                 url, json=data, headers=self._get_headers(), timeout=10
             )
             if response.status_code == 401:

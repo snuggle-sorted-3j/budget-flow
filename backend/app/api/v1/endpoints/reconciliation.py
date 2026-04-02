@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.crud import period as crud_period
 from app.models.user import User
-from app.schemas.reconciliation import PeriodReconciliation
+from app.schemas.reconciliation import PeriodReconciliation, TaxBenefitsResult
 from app.services import reconciliation_service
 
 router = APIRouter()
@@ -76,7 +76,42 @@ def finalize_period(
 
     # 4. Update status
     crud_period.update_period_status(db=db, user_id=current_user.id, period_id=period_id, status="FINALIZED")
-    
+
     # Return updated result
     result.status = "FINALIZED"
     return result
+
+
+@router.get("/periods/{period_id}/tax-benefits", response_model=TaxBenefitsResult, response_model_exclude_none=True)
+def get_tax_benefits(
+    *,
+    db: Session = Depends(deps.get_db),
+    period_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Calculate tax benefits for a period based on user's tax system settings.
+
+    Returns 204 when tax_system is NONE or user has no settings configured.
+    Returns 404 when the period does not exist.
+    """
+    # Verify period exists and belongs to user
+    period = crud_period.get_period(db=db, user_id=current_user.id, period_id=period_id)
+    if not period:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Period not found",
+        )
+
+    result = reconciliation_service.calculate_tax_benefits(
+        db=db, user_id=current_user.id, period_id=period_id
+    )
+    if result is None:
+        # No active tax system — return 204 No Content
+        from fastapi.responses import Response
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # Convert deductible_items list of dicts to list of DeductibleItem instances
+    from app.schemas.reconciliation import DeductibleItem
+    result["deductible_items"] = [DeductibleItem(**item) for item in result["deductible_items"]]
+    return TaxBenefitsResult(**result)
