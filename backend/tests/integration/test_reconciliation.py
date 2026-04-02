@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import uuid
 from typing import Dict
 from fastapi.testclient import TestClient

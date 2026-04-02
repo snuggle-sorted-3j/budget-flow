@@ -5,6 +5,9 @@ from app.schemas.period import PeriodCreate
 from app.models.user import User
 import pytest
 
+pytestmark = pytest.mark.unit
+
+
 def test_create_period(db: Session, test_user: User):
     period_in = PeriodCreate(
         period_name="Test Period",

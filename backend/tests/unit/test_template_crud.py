@@ -6,7 +6,10 @@ Tests cover:
 - Applying templates to new periods (copying data)
 - Managing default templates
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from sqlalchemy.orm import Session

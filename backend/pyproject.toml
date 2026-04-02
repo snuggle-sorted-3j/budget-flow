@@ -24,6 +24,38 @@ plugins = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "unit: Unit tests — isolated, no database required",
+    "integration: Integration tests — require database and TestClient",
+    "security: Security tests — authorization, injection, multi-tenant isolation",
+    "edge: Edge case tests — unicode, boundaries, special characters",
+    "schema: Schema validation tests — Pydantic model constraints",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/venv/*",
+    "*/migrations/*",
+    "app/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.bandit]
 skips = ["B101"]

@@ -7,7 +7,10 @@ Tests cover:
 - Getting income by ID
 - Deleting incomes
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from uuid import uuid4

@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.integration
+
 from fastapi.testclient import TestClient
 from app.models.user import User
 from app.models.currency import Currency

@@ -1,4 +1,7 @@
 import pytest
+
+pytestmark = pytest.mark.unit
+
 from uuid import uuid4
 from datetime import date, timedelta
 from decimal import Decimal

@@ -7,7 +7,10 @@ Tests cover:
 - Verifying data is copied
 - Managing default templates
 """
+
 import pytest
+pytestmark = pytest.mark.integration
+
 from typing import Dict
 from fastapi.testclient import TestClient
 from app.models.currency import Currency
@@ -89,6 +92,95 @@ def test_template_create_and_apply(
     
     assert len(expenses.json()) == 1
     assert expenses.json()[0]["item_name"] == "Template Rent"
+
+def test_template_preserves_categories(
+    client: TestClient, auth_headers: Dict[str, str], test_currency: Currency, test_category: ExpenseCategory
+):
+    """Applying a template preserves category_id on expenses."""
+    source_period_id = create_full_period(client, auth_headers, test_currency.id, test_category.id, "Cat")
+
+    # Create template
+    create_resp = client.post("/api/v1/templates/from-period", json={
+        "template_name": "Category Check",
+        "template_type": "FULL",
+        "source_period_id": source_period_id,
+    }, headers=auth_headers)
+    assert create_resp.status_code == 200
+    template_id = create_resp.json()["id"]
+
+    # Create target period and apply
+    t_resp = client.post("/api/v1/periods/", json={
+        "period_name": f"Cat Target {uuid.uuid4()}",
+        "start_date": "2026-12-01",
+        "end_date": "2026-12-31",
+        "snapshot_date": "2026-12-31",
+    }, headers=auth_headers)
+    target_period_id = t_resp.json()["id"]
+
+    apply_resp = client.post(
+        f"/api/v1/templates/{template_id}/apply",
+        json={"target_period_id": target_period_id},
+        headers=auth_headers,
+    )
+    assert apply_resp.status_code == 200
+
+    # Verify category is preserved
+    expenses = client.get(f"/api/v1/periods/{target_period_id}/expenses", headers=auth_headers)
+    assert len(expenses.json()) == 1
+    assert expenses.json()[0]["category_id"] == str(test_category.id)
+
+
+def test_template_default_exclusivity(
+    client: TestClient, auth_headers: Dict[str, str], test_currency: Currency, test_category: ExpenseCategory
+):
+    """Setting a template as default should make it the only default."""
+    sid1 = create_full_period(client, auth_headers, test_currency.id, test_category.id, "Def1")
+    sid2 = create_full_period(client, auth_headers, test_currency.id, test_category.id, "Def2")
+
+    # Create two templates
+    r1 = client.post("/api/v1/templates/from-period", json={
+        "template_name": "Default A", "template_type": "FULL", "source_period_id": sid1,
+    }, headers=auth_headers)
+    tid1 = r1.json()["id"]
+
+    r2 = client.post("/api/v1/templates/from-period", json={
+        "template_name": "Default B", "template_type": "FULL", "source_period_id": sid2,
+    }, headers=auth_headers)
+    tid2 = r2.json()["id"]
+
+    # Set first as default
+    client.patch(f"/api/v1/templates/{tid1}", json={"is_default": True}, headers=auth_headers)
+    # Set second as default
+    client.patch(f"/api/v1/templates/{tid2}", json={"is_default": True}, headers=auth_headers)
+
+    # Only one should be default
+    templates = client.get("/api/v1/templates/", headers=auth_headers).json()
+    defaults = [t for t in templates if t["is_default"] is True]
+    assert len(defaults) == 1
+    assert defaults[0]["id"] == tid2
+
+
+def test_apply_nonexistent_template(
+    client: TestClient, auth_headers: Dict[str, str], test_currency: Currency
+):
+    """Applying a template that doesn't exist returns an error."""
+    # Create a target period
+    t_resp = client.post("/api/v1/periods/", json={
+        "period_name": f"Ghost Target {uuid.uuid4()}",
+        "start_date": "2026-12-01",
+        "end_date": "2026-12-31",
+        "snapshot_date": "2026-12-31",
+    }, headers=auth_headers)
+    target_period_id = t_resp.json()["id"]
+
+    fake_template_id = str(uuid.uuid4())
+    resp = client.post(
+        f"/api/v1/templates/{fake_template_id}/apply",
+        json={"target_period_id": target_period_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code in (404, 400, 500)
+
 
 def test_template_management(client: TestClient, auth_headers: Dict[str, str], test_currency: Currency, test_category: ExpenseCategory):
     """Test: List, Update, Delete templates."""

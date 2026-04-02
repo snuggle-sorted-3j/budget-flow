@@ -7,7 +7,10 @@ Tests cover:
 - Creating payments triggering PAID_OFF status
 - Deleting payments recalculating balance
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from sqlalchemy.orm import Session

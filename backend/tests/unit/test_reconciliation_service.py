@@ -13,7 +13,10 @@ Tests cover:
 - Currency conversions
 - Multi-currency scenarios
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from uuid import uuid4

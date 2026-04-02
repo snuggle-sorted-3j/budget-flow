@@ -10,6 +10,9 @@ from app.models.user import User
 from app.models.currency import Currency
 import pytest
 
+pytestmark = pytest.mark.unit
+
+
 def test_create_account(db: Session, test_user: User, test_currency: Currency):
     account_in = AccountCreate(
         account_name="Savings",

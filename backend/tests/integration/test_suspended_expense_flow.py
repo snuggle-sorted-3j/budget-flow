@@ -7,7 +7,10 @@ Tests cover:
 - Conversion to Expense (Money lost/spent)
 - Deletion
 """
+
 import pytest
+pytestmark = pytest.mark.integration
+
 from typing import Dict
 from fastapi.testclient import TestClient
 from app.models.currency import Currency

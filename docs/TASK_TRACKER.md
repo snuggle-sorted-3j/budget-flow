@@ -88,17 +88,37 @@
 
 | Phase | Tasks | Completed | Status |
 |-------|-------|-----------|--------|
-| Foundation | 3 | 2 | 🟡 In Progress |
-| Core CRUD | 2 | 1 | 🟡 In Progress |
-| Auth | 2 | 1 | 🟡 In Progress |
-| Workflows | 4 | 0 | ⬜ Not Started |
+| Foundation | 3 | 3 | ✅ Complete |
+| Core CRUD | 2 | 2 | ✅ Complete |
+| Auth | 2 | 2 | ✅ Complete |
+| Workflows | 4 | 4 | ✅ Complete |
 | CI/CD | 1 | 1 | ✅ Complete |
-| **Total** | **12** | **5** | **42%** |
+| **Total** | **12** | **12** | **100%** |
+
+## Post-Plan Enhancements
+
+| Module | Tests Before | Tests After | Notes |
+|--------|-------------|-------------|-------|
+| `test_currency_conversion_flow.py` | 1 | 6 | Added validation, empty list, multi-create, delete 404 |
+| `test_template_flow.py` | 2 | 5 | Added category preservation, default exclusivity, nonexistent apply |
+| `test_installment_flow.py` | 2 | 6 | Added paid-off flow, multiple payments, list payments, update item |
+| `test_investment_flow.py` | 2 | 5 | Added list accounts, list categories, period isolation |
+
+## QA Improvement Loop (Industry Best Practices)
+
+| Phase | Step | Status | File | Tests | Notes |
+|-------|------|--------|------|-------|-------|
+| A1 | Multi-tenant authorization | ✅ | `test_authorization.py` | 14 | Cross-user isolation for periods, incomes, expenses, accounts |
+| A2 | Injection safety | ✅ | `test_authorization.py` | (included above) | SQL injection + XSS in text fields |
+| B1 | Schema validation | ✅ | `test_schemas.py` | 35 | All 35 pass. Covers 6 schemas: Period, Income, Expense, Installment, Payment, Conversion |
+| C1 | Edge cases | ✅ | `test_edge_cases.py` | 49 | All 49 pass. Unicode (5 scripts), string boundaries, numeric limits, date edges, 12 special char patterns |
+| D1 | Pytest markers | ✅ | `pyproject.toml` + 27 test files | 5 markers | unit, integration, security, edge, schema — all 27 test files decorated |
+| D2 | Coverage config | ✅ | `pyproject.toml` + 2 conftest files | - | coverage.run/report/html config, unit/conftest.py (data fixtures), integration/conftest.py (factory fixtures) |
 
 ---
 
 ## Last Updated
-2026-02-01
+2026-04-02
 
 ## Notes
 - Update this file after completing each task

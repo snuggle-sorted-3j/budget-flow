@@ -1,5 +1,8 @@
 from fastapi.testclient import TestClient
 import pytest
+
+pytestmark = pytest.mark.integration
+
 from app.models.user import User
 from app.models.currency import Currency
 from decimal import Decimal

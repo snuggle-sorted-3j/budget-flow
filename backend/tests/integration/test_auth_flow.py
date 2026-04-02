@@ -7,7 +7,10 @@ Tests cover:
 - Protected endpoint access (with and without token)
 - Token validation edge cases
 """
+
 import pytest
+pytestmark = pytest.mark.integration
+
 import uuid
 from typing import Dict
 from fastapi.testclient import TestClient

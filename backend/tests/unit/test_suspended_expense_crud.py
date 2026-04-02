@@ -6,7 +6,10 @@ Tests cover:
 - Updating status (settled)
 - Deleting suspended expenses
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from sqlalchemy.orm import Session

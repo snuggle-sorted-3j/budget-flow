@@ -7,7 +7,10 @@ Tests cover:
 - Getting expense by ID
 - Deleting expenses
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from uuid import uuid4

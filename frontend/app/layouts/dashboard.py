@@ -99,8 +99,8 @@ def create_dashboard_layout(user_email: str = "User"):
                         className="px-3"
                     ),
                     dbc.NavLink(
-                        [html.I(className="bi bi-layers-half me-3"), "Templates"],
-                        href="/dashboard/templates",
+                        [html.I(className="bi bi-download me-3"), "Export & Backup"],
+                        href="/dashboard/export",
                         active="exact",
                         className="px-3"
                     ),

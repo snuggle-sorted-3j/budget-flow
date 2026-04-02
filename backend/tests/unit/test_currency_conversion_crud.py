@@ -6,7 +6,10 @@ Tests cover:
 - Listing conversions by period
 - Updating and deleting conversions
 """
+
 import pytest
+pytestmark = pytest.mark.unit
+
 from decimal import Decimal
 from datetime import date
 from sqlalchemy.orm import Session
