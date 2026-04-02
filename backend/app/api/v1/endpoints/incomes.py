@@ -30,6 +30,9 @@ def create_income(
     if not period:
         raise HTTPException(status_code=404, detail="Period not found")
 
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot add income to a finalized period")
+
     # Verify currency belongs to user
     currency = crud_currency.get_currency_by_id(db=db, user_id=current_user.id, currency_id=income_in.currency_id)
     if not currency:
@@ -76,6 +79,9 @@ def update_income(
     if not period:
         raise HTTPException(status_code=403, detail="Not authorized to update this income")
 
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot update income in a finalized period")
+
     # If currency is changing, verify it
     if income_in.currency_id:
         currency = crud_currency.get_currency_by_id(db=db, user_id=current_user.id, currency_id=income_in.currency_id)
@@ -104,6 +110,9 @@ def delete_income_endpoint(
     period = crud_period.get_period(db=db, user_id=current_user.id, period_id=income.calculation_period_id)
     if not period:
         raise HTTPException(status_code=403, detail="Not authorized to delete this income")
-        
+
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot delete income from a finalized period")
+
     crud_income.delete_income(db=db, income_id=income_id)
     return {"message": "Income deleted successfully"}

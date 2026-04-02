@@ -7,7 +7,37 @@ from utils.api_client import APIClient
 from utils.ui_helpers import format_currency, get_amount_class
 
 
-def create_recon_currency_card(summary):
+def _difference_explanation(currency, difference):
+    """Return contextual explanation of the reconciliation gap."""
+    abs_diff = abs(difference)
+    if difference > 0:
+        return dbc.Alert(
+            [
+                html.I(className="bi bi-info-circle me-2"),
+                html.Strong(f"You have {format_currency(abs_diff)} {currency} LESS than recorded. "),
+                "Possible reasons: small cash purchases without receipts, ATM withdrawals, or missing expenses.",
+                html.Br(),
+                html.Small(
+                    "Add an 'Untracked Expenses' entry below, or review your expense list.",
+                    className="text-muted"
+                ),
+            ],
+            color="warning",
+            className="mt-3 mb-2",
+        )
+    else:
+        return dbc.Alert(
+            [
+                html.I(className="bi bi-info-circle me-2"),
+                html.Strong(f"You have {format_currency(abs_diff)} {currency} MORE than recorded. "),
+                "Possible reasons: forgot to record an income source, or over-recorded an expense.",
+            ],
+            color="info",
+            className="mt-3 mb-2",
+        )
+
+
+def create_recon_currency_card(summary, period_id=None, period_status=None):
     """Create a polished card for a single currency reconciliation."""
     currency = summary.get("currency_ticker", "")
     starting = float(summary.get("starting_balance", 0))
@@ -18,17 +48,36 @@ def create_recon_currency_card(summary):
 
     status_pill_class = "status-balanced" if is_balanced else "status-difference"
     badge_text = "BALANCED ✓" if is_balanced else f"UNRECONCILED GAP: {format_currency(difference)}"
-    
+
     diff_border = "card-balanced" if is_balanced else "card-unbalanced"
     diff_text_class = get_amount_class(difference)
+
+    # Action section: quick-balance button when positive difference (expected > actual → add expense)
+    action_section = []
+    if not is_balanced and period_status != "FINALIZED":
+        action_section.append(_difference_explanation(currency, difference))
+        if difference > 0:
+            action_section.append(
+                dbc.Button(
+                    [html.I(className="bi bi-plus-circle me-2"), f"Add Untracked Expense ({format_currency(difference)} {currency})"],
+                    id={"type": "quick-balance-btn", "currency": currency},
+                    color="warning",
+                    size="sm",
+                    className="mt-1 mb-2",
+                )
+            )
+
+    finalized_badge = []
+    if period_status == "FINALIZED":
+        finalized_badge = [dbc.Badge("FINALIZED", color="secondary", className="ms-2")]
 
     return dbc.Col(
         dbc.Card([
             dbc.CardBody([
                 html.Div([
-                    html.Span(currency, className="currency-ticker float-end"),
+                    html.Span([currency] + finalized_badge, className="currency-ticker float-end"),
                     html.Div("Reconciliation Status", className="text-muted small fw-bold text-uppercase mb-3"),
-                    
+
                     html.Div([
                         html.Span(badge_text, className=f"status-pill {status_pill_class} fs-6"),
                     ], className="mb-4"),
@@ -52,9 +101,11 @@ def create_recon_currency_card(summary):
 
                     html.Div([
                         html.Div("Reconciliation Gap", className="text-muted small fw-bold text-uppercase"),
-                        html.Div(format_currency(difference, show_sign=True), 
+                        html.Div(format_currency(difference, show_sign=True),
                                 className=f"recon-diff-xl {diff_text_class}"),
-                    ], className="text-center py-2")
+                    ], className="text-center py-2"),
+
+                    *action_section,
                 ])
             ])
         ], className=f"dashboard-card {diff_border} mb-4"),
@@ -255,7 +306,11 @@ def register_reconciliation_callbacks(app):
         if not reconciliations:
             return dbc.Alert("No reconciliation data available. Please add income, expenses, and snapshots.", color="warning"), False
 
-        summary_cards = [create_recon_currency_card(s) for s in reconciliations]
+        period_status = response.get("status", "")
+        summary_cards = [
+            create_recon_currency_card(s, period_id=period_id, period_status=period_status)
+            for s in reconciliations
+        ]
 
         # Overall status banner
         overall_banner = dbc.Alert(
@@ -461,3 +516,80 @@ def register_reconciliation_callbacks(app):
             ],
             className="mb-4 shadow-sm border-primary",
         )
+
+    @app.callback(
+        [
+            Output("quick-balance-alert-container", "children"),
+            Output("recon-summary-container", "children", allow_duplicate=True),
+            Output("recon-balanced-store", "data", allow_duplicate=True),
+        ],
+        [Input({"type": "quick-balance-btn", "currency": dash.ALL}, "n_clicks")],
+        [
+            State({"type": "quick-balance-btn", "currency": dash.ALL}, "id"),
+            State("current-period-id", "data"),
+            State("session-store", "data"),
+        ],
+        prevent_initial_call=True,
+    )
+    def handle_quick_balance(n_clicks_list, btn_ids, period_id, session_data):
+        """Handle quick-balance button click: auto-create Untracked Expenses entry."""
+        if not any(n for n in (n_clicks_list or []) if n):
+            raise dash.exceptions.PreventUpdate
+
+        if not period_id or not session_data or "token" not in session_data:
+            return dbc.Alert("Not authenticated", color="danger"), dash.no_update, dash.no_update
+
+        token = session_data["token"]
+        api_client.set_token(token)
+
+        # Determine which button was clicked
+        clicked_currency = None
+        for clicks, btn_id in zip(n_clicks_list or [], btn_ids or []):
+            if clicks:
+                clicked_currency = btn_id["currency"]
+                break
+
+        if not clicked_currency:
+            raise dash.exceptions.PreventUpdate
+
+        resp = api_client.post(
+            f"/periods/{period_id}/quick-balance",
+            {"currency_ticker": clicked_currency},
+        )
+
+        if "error" in resp:
+            alert = dbc.Alert(
+                [html.I(className="bi bi-exclamation-triangle me-2"), f"Error: {resp['error']}"],
+                color="danger", dismissable=True, className="mb-3",
+            )
+            return alert, dash.no_update, dash.no_update
+
+        # Reload reconciliation
+        recon_resp = api_client.get(f"/periods/{period_id}/reconciliation")
+        if "error" in recon_resp:
+            alert = dbc.Alert("Expense added. Refresh to see updated reconciliation.", color="success", dismissable=True)
+            return alert, dash.no_update, dash.no_update
+
+        reconciliations = recon_resp.get("reconciliations", [])
+        overall_balanced = recon_resp.get("overall_balanced", False)
+        period_status = recon_resp.get("status", "")
+        summary_cards = [
+            create_recon_currency_card(s, period_id=period_id, period_status=period_status)
+            for s in reconciliations
+        ]
+        overall_banner = dbc.Alert(
+            [
+                html.I(className=f"bi bi-{'check-circle' if overall_balanced else 'x-circle'} me-2"),
+                html.Strong(
+                    "All currencies are balanced! You can finalize this period." if overall_balanced
+                    else "Some currencies are not balanced. Please review and adjust before finalizing."
+                ),
+            ],
+            color="success" if overall_balanced else "danger",
+            className="mb-4 shadow-sm",
+        )
+        alert = dbc.Alert(
+            [html.I(className="bi bi-check-circle me-2"), f"Added Untracked Expenses for {clicked_currency}."],
+            color="success", dismissable=True, className="mb-3",
+        )
+        return alert, html.Div([overall_banner, dbc.Row(summary_cards)]), overall_balanced

@@ -31,6 +31,9 @@ def create_expense(
     if not period:
         raise HTTPException(status_code=404, detail="Period not found")
 
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot add expense to a finalized period")
+
     # Verify category belongs to user
     category = crud_category.get_category(db=db, user_id=current_user.id, category_id=expense_in.category_id)
     if not category:
@@ -82,6 +85,9 @@ def update_expense(
     if not period:
         raise HTTPException(status_code=403, detail="Not authorized to update this expense")
 
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot update expense in a finalized period")
+
     # If category or currency changing, verify them
     if expense_in.category_id:
         category = crud_category.get_category(db=db, user_id=current_user.id, category_id=expense_in.category_id)
@@ -115,6 +121,9 @@ def delete_expense_endpoint(
     period = crud_period.get_period(db=db, user_id=current_user.id, period_id=expense.calculation_period_id)
     if not period:
         raise HTTPException(status_code=403, detail="Not authorized to delete this expense")
-        
+
+    if period.status == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Cannot delete expense from a finalized period")
+
     crud_expense.delete_expense(db=db, expense_id=expense_id)
     return {"message": "Expense deleted successfully"}

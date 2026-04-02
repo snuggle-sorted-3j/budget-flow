@@ -12,13 +12,14 @@ def register_common_reconciliation_callbacks(app):
     def get_recon_data(period_id, token):
         api_client.set_token(token)
         response = api_client.get(f"/periods/{period_id}/reconciliation")
-        
+
         if "error" in response:
-            return None, False, f"Error: {response['error']}"
+            return None, False, f"Error: {response['error']}", None
 
         reconciliations = response.get("reconciliations", [])
         overall_balanced = response.get("overall_balanced", False)
-        
+        period_status = response.get("status", "")
+
         cards = []
         for cs in reconciliations:
             total_income = float(cs.get("total_income", 0))
@@ -26,8 +27,19 @@ def register_common_reconciliation_callbacks(app):
             starting = float(cs.get("starting_balance", 0))
             if total_income != 0 or total_expenses != 0 or starting != 0:
                 cards.append(create_financial_summary_card(cs))
-        
-        return cards, overall_balanced, None
+
+        return cards, overall_balanced, None, period_status
+
+    def _finalized_banner():
+        return dbc.Alert(
+            [
+                html.I(className="bi bi-lock-fill me-2"),
+                html.Strong("This period is FINALIZED. "),
+                "Transactions are locked and cannot be added, edited, or deleted.",
+            ],
+            color="secondary",
+            className="mb-3",
+        )
 
     # Tab-specific callbacks to avoid "Nonexistent Object" errors
     # 1. Expenses Tab Summary
@@ -40,15 +52,20 @@ def register_common_reconciliation_callbacks(app):
     def update_expense_recon(period_id, trigger, session_data):
         if not period_id or not session_data or "token" not in session_data:
              return dash.no_update
-        
-        cards, balanced, error = get_recon_data(period_id, session_data["token"])
+
+        cards, balanced, error, period_status = get_recon_data(period_id, session_data["token"])
         if error: return html.Div(error, className="text-danger")
-        if not cards: return html.Div("No financial data for this period", className="text-muted small italic")
-        
-        return html.Div([
-            html.H6("Live Period Status", className="mb-3 fw-bold text-muted small text-uppercase"),
-            dbc.Row(cards)
-        ])
+
+        children = []
+        if period_status == "FINALIZED":
+            children.append(_finalized_banner())
+        if not cards:
+            children.append(html.Div("No financial data for this period", className="text-muted small italic"))
+        else:
+            children.append(html.H6("Live Period Status", className="mb-3 fw-bold text-muted small text-uppercase"))
+            children.append(dbc.Row(cards))
+
+        return html.Div(children)
 
     # 2. Income Tab Summary
     @app.callback(
@@ -60,15 +77,20 @@ def register_common_reconciliation_callbacks(app):
     def update_income_recon(period_id, trigger, session_data):
         if not period_id or not session_data or "token" not in session_data:
              return dash.no_update
-        
-        cards, balanced, error = get_recon_data(period_id, session_data["token"])
+
+        cards, balanced, error, period_status = get_recon_data(period_id, session_data["token"])
         if error: return html.Div(error, className="text-danger")
-        if not cards: return html.Div("No financial data for this period", className="text-muted small italic")
-        
-        return html.Div([
-            html.H6("Live Period Status", className="mb-3 fw-bold text-muted small text-uppercase"),
-            dbc.Row(cards)
-        ])
+
+        children = []
+        if period_status == "FINALIZED":
+            children.append(_finalized_banner())
+        if not cards:
+            children.append(html.Div("No financial data for this period", className="text-muted small italic"))
+        else:
+            children.append(html.H6("Live Period Status", className="mb-3 fw-bold text-muted small text-uppercase"))
+            children.append(dbc.Row(cards))
+
+        return html.Div(children)
 
     # 3. Reconciliation Tab Main Summary & Finalize Visibility
     @app.callback(
@@ -85,7 +107,7 @@ def register_common_reconciliation_callbacks(app):
         if not period_id or not session_data or "token" not in session_data:
              return dash.no_update, dash.no_update, dash.no_update
         
-        cards, balanced, error = get_recon_data(period_id, session_data["token"])
+        cards, balanced, error, period_status = get_recon_data(period_id, session_data["token"])
         if error: return html.Div(error, className="text-danger"), False, {"display": "none"}
         
         overall_banner = dbc.Alert(

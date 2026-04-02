@@ -66,6 +66,8 @@ def create_reconciliation_tab_layout():
                         ],
                         className="mb-4",
                     ),
+                    # Quick-balance feedback alert
+                    html.Div(id="quick-balance-alert-container"),
                     # Section 3: Tax Benefits (shown only when B2B tax system is active)
                     html.Div(id="tax-benefits-container", className="mb-4"),
                     # Section 4: Finalize Period
