@@ -1,6 +1,7 @@
 """Enhanced Expenses Management tab with comprehensive error handling and UX improvements."""
 import dash_bootstrap_components as dbc
 from dash import html, dcc
+from utils.tooltips import help_icon
 
 
 def create_expenses_tab_layout():
@@ -149,10 +150,16 @@ def create_expenses_tab_layout():
                                                 [
                                                     dbc.Col(
                                                         [
-                                                            dbc.Checkbox(
-                                                                id="expense-is-recurring",
-                                                                label="Recurring Expense",
-                                                                value=False,
+                                                            html.Div(
+                                                                [
+                                                                    dbc.Checkbox(
+                                                                        id="expense-is-recurring",
+                                                                        label="Recurring Expense",
+                                                                        value=False,
+                                                                    ),
+                                                                    help_icon("tip-expense-recurring", "expense_recurring"),
+                                                                ],
+                                                                className="d-flex align-items-center",
                                                             ),
                                                             html.Small("(e.g., rent, subscriptions)", className="text-muted d-block ms-4"),
                                                         ],

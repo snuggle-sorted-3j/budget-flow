@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 from dash import html, dcc
+from utils.tooltips import help_icon, TIPS, make_tooltip
 
 
 def create_reconciliation_tab_layout():
@@ -16,7 +17,10 @@ def create_reconciliation_tab_layout():
                     dbc.Card(
                         [
                             dbc.CardHeader(
-                                html.H4("Step 1: Enter Balance Snapshots")
+                                html.H4([
+                                    "Step 1: Enter Balance Snapshots",
+                                    help_icon("tip-recon-snapshot", "reconciliation_snapshot", placement="right"),
+                                ])
                             ),
                             dbc.CardBody(
                                 [

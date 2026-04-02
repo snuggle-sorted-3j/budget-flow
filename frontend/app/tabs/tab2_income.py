@@ -1,6 +1,7 @@
 """Enhanced Income Management tab with comprehensive error handling and UX improvements."""
 import dash_bootstrap_components as dbc
 from dash import html, dcc
+from utils.tooltips import help_icon
 
 
 def create_income_tab_layout():
@@ -125,20 +126,32 @@ def create_income_tab_layout():
                                                 [
                                                     dbc.Col(
                                                         [
-                                                            dbc.Checkbox(
-                                                                id="income-tax-applicable",
-                                                                label="Tax Applicable",
-                                                                value=False,
+                                                            html.Div(
+                                                                [
+                                                                    dbc.Checkbox(
+                                                                        id="income-tax-applicable",
+                                                                        label="Tax Applicable",
+                                                                        value=False,
+                                                                    ),
+                                                                    help_icon("tip-income-tax", "income_tax_applicable"),
+                                                                ],
+                                                                className="d-flex align-items-center",
                                                             ),
                                                         ],
                                                         md=6,
                                                     ),
                                                     dbc.Col(
                                                         [
-                                                            dbc.Checkbox(
-                                                                id="income-is-recurring",
-                                                                label="Recurring Income",
-                                                                value=False,
+                                                            html.Div(
+                                                                [
+                                                                    dbc.Checkbox(
+                                                                        id="income-is-recurring",
+                                                                        label="Recurring Income",
+                                                                        value=False,
+                                                                    ),
+                                                                    help_icon("tip-income-recurring", "income_recurring"),
+                                                                ],
+                                                                className="d-flex align-items-center",
                                                             ),
                                                             html.Small("(e.g., monthly salary)", className="text-muted d-block ms-4"),
                                                         ],
