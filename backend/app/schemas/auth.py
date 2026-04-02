@@ -1,5 +1,6 @@
 """Authentication-related Pydantic schemas."""
 
+from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -37,6 +38,14 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class SetupStatusResponse(BaseModel):
+    """Response indicating whether the user needs initial setup."""
+
+    needs_setup: bool
+    missing: List[str]
+    currencies_count: int
 
 
 

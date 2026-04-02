@@ -1,5 +1,7 @@
 """Authentication endpoints for user registration, login, and profile."""
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -8,7 +10,10 @@ from app.api.deps import get_current_user, get_db
 from app.core.security import create_access_token
 from app.crud.user import authenticate_user, create_user, get_user_by_email
 from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse, UserCreate, UserResponse
+from app.models.account import Account
+from app.models.calculation_period import CalculationPeriod
+from app.models.currency import Currency
+from app.schemas.auth import LoginRequest, SetupStatusResponse, TokenResponse, UserCreate, UserResponse
 
 router = APIRouter()
 
@@ -130,6 +135,39 @@ def get_current_user_info(
         Current user data.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.get("/setup-status", response_model=SetupStatusResponse)
+def get_setup_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SetupStatusResponse:
+    """Return whether the user still needs to complete initial setup.
+
+    Args:
+        db: Database session.
+        current_user: Authenticated user.
+
+    Returns:
+        SetupStatusResponse with needs_setup flag, list of missing items,
+        and current counts for key entities.
+    """
+    missing = []
+
+    has_accounts = db.query(Account).filter_by(user_id=current_user.id, is_active=True).first() is not None
+    has_periods = db.query(CalculationPeriod).filter_by(user_id=current_user.id).first() is not None
+    currencies_count = db.query(Currency).filter_by(user_id=current_user.id).count()
+
+    if not has_accounts:
+        missing.append("accounts")
+    if not has_periods:
+        missing.append("periods")
+
+    return SetupStatusResponse(
+        needs_setup=bool(missing),
+        missing=missing,
+        currencies_count=currencies_count,
+    )
 
 
 

@@ -19,9 +19,11 @@ from callbacks.conversion_callbacks import register_conversion_callbacks
 from callbacks.template_callbacks import register_template_callbacks
 from callbacks.analytics_callbacks import register_analytics_callbacks
 from callbacks.analytics_advanced_callbacks import register_analytics_advanced_callbacks
+from callbacks.setup_wizard_callbacks import register_setup_wizard_callbacks
 from layouts.login import create_login_layout
 from layouts.register import create_register_layout
 from layouts.dashboard import create_dashboard_layout
+from layouts.setup_wizard import create_setup_wizard_layout
 from tabs.dashboard_home import create_dashboard_home_layout
 from tabs.tab1_period_setup import create_period_tab_layout
 from tabs.tab2_income import create_income_tab_layout
@@ -79,6 +81,7 @@ register_conversion_callbacks(app)
 register_template_callbacks(app)
 register_analytics_callbacks(app)
 register_analytics_advanced_callbacks(app)
+register_setup_wizard_callbacks(app)
 
 
 @app.callback(
@@ -87,31 +90,51 @@ register_analytics_advanced_callbacks(app)
 )
 def display_page(pathname, session_data, user_data):
     """Handle page routing based on URL and authentication state."""
-    
-    # Check if user is authenticated
+    from utils.api_client import APIClient
+    _api = APIClient()
+
     is_authenticated = session_data and "token" in session_data
-    
-    # Login page
+
+    # Login / root
     if pathname == "/login" or pathname == "/":
         if is_authenticated and pathname == "/":
-            # Redirect to dashboard if already logged in
             user_email = user_data.get("email", "User") if user_data else "User"
             return create_dashboard_layout(user_email=user_email)
         return create_login_layout()
-    
-    # Registration page
+
+    # Registration
     if pathname == "/register":
         return create_register_layout()
-    
+
+    # Setup wizard
+    if pathname and pathname.startswith("/setup-wizard"):
+        if not is_authenticated:
+            return create_login_layout()
+        try:
+            _api.set_token(session_data["token"])
+            currencies = _api.get("/currencies/") or []
+        except Exception:
+            currencies = []
+        return create_setup_wizard_layout(step=1, currencies=currencies)
+
     # Dashboard and sub-pages
     if pathname and pathname.startswith("/dashboard"):
         if not is_authenticated:
-            # Redirect to login if not authenticated
             return create_login_layout()
-        
+
+        # Check if first-time setup is needed
+        try:
+            _api.set_token(session_data["token"])
+            status = _api.get("/auth/setup-status")
+            if isinstance(status, dict) and status.get("needs_setup"):
+                currencies = _api.get("/currencies/") or []
+                return create_setup_wizard_layout(step=1, currencies=currencies)
+        except Exception:
+            pass
+
         user_email = user_data.get("email", "User") if user_data else "User"
         return create_dashboard_layout(user_email=user_email)
-    
+
     # Default: redirect to login
     return create_login_layout()
 
