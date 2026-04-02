@@ -108,6 +108,16 @@ def apply_template_to_period(
     if not template:
         return {"error": "Template not found"}
 
+    # Verify target period exists and belongs to the user
+    target_period = db.execute(
+        select(CalculationPeriod).where(
+            CalculationPeriod.id == target_period_id,
+            CalculationPeriod.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if not target_period:
+        return {"error": "Target period not found"}
+
     data = template.template_data
     summary = {"categories": 0, "income_sources": 0, "expenses": 0}
 

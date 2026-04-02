@@ -104,15 +104,33 @@ def create_period_tab_layout():
                                                 [
                                                     dbc.Checkbox(
                                                         id="period-apply-template-check",
-                                                        label="Apply default template to this period (if exists)",
-                                                        value=True,
+                                                        label="Apply a template to this period",
+                                                        value=False,
                                                         className="small text-muted",
                                                     ),
                                                 ],
                                                 md=12,
                                             ),
                                         ],
-                                        className="mb-4",
+                                        className="mb-2",
+                                    ),
+                                    # Template selector — shown only when checkbox is checked
+                                    html.Div(
+                                        id="period-template-selector",
+                                        children=[
+                                            dbc.Row([
+                                                dbc.Col([
+                                                    dbc.Label("Select Template", html_for="period-template-dropdown", className="small"),
+                                                    dbc.Select(
+                                                        id="period-template-dropdown",
+                                                        placeholder="Choose a template...",
+                                                    ),
+                                                    html.Div(id="period-template-preview", className="mt-2"),
+                                                ], md=8),
+                                            ]),
+                                        ],
+                                        style={"display": "none"},
+                                        className="mb-4 ps-3 border-start border-primary",
                                     ),
                                     dbc.Button(
                                         [

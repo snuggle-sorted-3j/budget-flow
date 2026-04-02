@@ -39,11 +39,12 @@ def register_period_callbacks(app):
             State("period-start-date", "value"),
             State("period-end-date", "value"),
             State("period-apply-template-check", "value"),
+            State("period-template-dropdown", "value"),
             State("session-store", "data"),
         ],
         prevent_initial_call=True,
     )
-    def create_period(n_clicks, period_name, start_date, end_date, apply_template, session_data):
+    def create_period(n_clicks, period_name, start_date, end_date, apply_template, selected_template_id, session_data):
         """Handle period creation with comprehensive validation."""
         if not n_clicks:
             raise PreventUpdate
@@ -122,15 +123,30 @@ def register_period_callbacks(app):
             period_id = response.get("id")
             template_msg = ""
             
-            # Auto-apply default template if requested
+            # Apply selected or default template if requested
             if apply_template and period_id:
-                templates = api_client.get("/templates/")
-                if isinstance(templates, list):
-                    default_tpl = next((t for t in templates if t.get("is_default")), None)
-                    if default_tpl:
-                        apply_res = api_client.post(f"/templates/{default_tpl['id']}/apply", {"target_period_id": period_id})
-                        if "error" not in apply_res:
-                            template_msg = f" (Applied template: {default_tpl['template_name']})"
+                tpl_id_to_apply = selected_template_id
+                tpl_name = ""
+                if not tpl_id_to_apply:
+                    # Fall back to default template
+                    templates = api_client.get("/templates/")
+                    if isinstance(templates, list):
+                        default_tpl = next((t for t in templates if t.get("is_default")), None)
+                        if default_tpl:
+                            tpl_id_to_apply = default_tpl["id"]
+                            tpl_name = default_tpl["template_name"]
+                else:
+                    # Get template name for the selected template
+                    templates = api_client.get("/templates/")
+                    if isinstance(templates, list):
+                        sel = next((t for t in templates if t["id"] == tpl_id_to_apply), None)
+                        if sel:
+                            tpl_name = sel["template_name"]
+
+                if tpl_id_to_apply:
+                    apply_res = api_client.post(f"/templates/{tpl_id_to_apply}/apply", {"target_period_id": period_id})
+                    if "error" not in apply_res:
+                        template_msg = f" (Applied template: {tpl_name})"
 
             # Success - clear form and refresh table
             periods_response = api_client.get("/periods/")
@@ -275,6 +291,70 @@ def register_period_callbacks(app):
                 color="danger"
             )
             return dash.no_update, False, toast, dash.no_update
+
+    @app.callback(
+        [
+            Output("period-template-selector", "style"),
+            Output("period-template-dropdown", "options"),
+        ],
+        [Input("period-apply-template-check", "value"), Input("session-store", "data")],
+    )
+    def toggle_template_selector(apply_template, session_data):
+        """Show template dropdown when apply-template is checked; populate with user's templates."""
+        if not apply_template:
+            return {"display": "none"}, []
+
+        if not session_data or "token" not in session_data:
+            return {"display": "block"}, []
+
+        api_client.set_token(session_data["token"])
+        templates = api_client.get("/templates/")
+        options = []
+        if isinstance(templates, list):
+            for t in templates:
+                label = t["template_name"]
+                if t.get("is_default"):
+                    label += " (Default)"
+                options.append({"label": label, "value": t["id"]})
+
+        return {"display": "block"}, options
+
+    @app.callback(
+        Output("period-template-preview", "children"),
+        [Input("period-template-dropdown", "value"), Input("session-store", "data")],
+        prevent_initial_call=True,
+    )
+    def show_template_preview(template_id, session_data):
+        """Show a brief preview of the selected template."""
+        if not template_id or not session_data or "token" not in session_data:
+            return []
+
+        api_client.set_token(session_data["token"])
+        templates = api_client.get("/templates/")
+        if not isinstance(templates, list):
+            return []
+
+        tpl = next((t for t in templates if t["id"] == template_id), None)
+        if not tpl:
+            return []
+
+        data = tpl.get("template_data", {})
+        cats = len(data.get("categories", []))
+        incomes = len(data.get("income_sources", []))
+        expenses = len(data.get("recurring_expenses", []))
+
+        return dbc.Alert(
+            [
+                html.I(className="bi bi-info-circle me-2"),
+                f"This template will add: ",
+                html.Strong(f"{incomes} income source(s), "),
+                html.Strong(f"{expenses} recurring expense(s), "),
+                html.Strong(f"{cats} category/ies"),
+                " to the new period.",
+            ],
+            color="light",
+            className="py-2 small mb-0",
+        )
 
 
 def create_period_table(periods):
