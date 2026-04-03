@@ -1,3 +1,5 @@
+> **PARTIALLY OUTDATED** — Last updated 2026-01-04. Current test count is 151 across unit and integration suites. Module list below covers Phase 1-2 only; Phase 3 additions (tax_benefits, recon_ui_polish, template_period_flow, export, analytics, setup_wizard) are not reflected here.
+
 # BudgetFlow Backend Testing Documentation
 
 This document tracks the implemented tests for the BudgetFlow backend. The test suite is designed to ensure robust business logic, data integrity, and API reliability.

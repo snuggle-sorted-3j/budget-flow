@@ -1,3 +1,5 @@
+> **OBSOLETE** — All gaps identified here were closed in April 2026. See `PRD.md` Section 16 for implementation status.
+
 # PRD Implementation Assessment: BudgetFlow
 
 This document provides a gap analysis of the current **BudgetFlow** implementation compared to the **Product Requirements Document (PRD v1.0)**.

@@ -1,3 +1,5 @@
+> **OBSOLETE** — Reflects state as of early Phase 2. All tasks are now complete. See `PRD.md` Section 16 for current implementation status.
+
 # BudgetFlow Test Implementation - Task Tracker
 
 ## Current Phase: Phase 2 - Core CRUD (In Progress)

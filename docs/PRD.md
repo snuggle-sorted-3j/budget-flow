@@ -1,20 +1,10 @@
-Perfect! I'll regenerate `PRD.md` in the correct pure markdown format (like your existing files).
-
-**📄 COPY INSTRUCTIONS:** 
-- Copy everything starting from the line "# BudgetFlow - Product Requirements Document (PRD)" below
-- Stop copying at "END OF PRD.md"
-- Paste into a new file named `PRD.md`
-- All markdown formatting, tables, and code blocks will render correctly
-
----
-
 # BudgetFlow - Product Requirements Document (PRD)
 
-**Version:** 1.0  
-**Last Updated:** November 9, 2025  
+**Version:** 2.0  
+**Last Updated:** April 3, 2026  
 **Project Name:** BudgetFlow  
 **Repository Name:** budget-flow  
-**Status:** Approved for Development
+**Status:** Phase 1–3 Complete ✅
 
 ***
 
@@ -35,6 +25,7 @@ Perfect! I'll regenerate `PRD.md` in the correct pure markdown format (like your
 13. [Design Decisions](#13-design-decisions-confirmed)
 14. [Risk Assessment](#14-risk-assessment)
 15. [Appendices](#15-appendices)
+16. [Implementation Status](#16-implementation-status)
 
 ***
 
@@ -1147,7 +1138,7 @@ alembic downgrade -1
 
 ## 9. Development Phases (Cursor Implementation)
 
-### Phase 1: Core Accounting (Weeks 1-2)
+### Phase 1: Core Accounting ✅ COMPLETE
 
 **Features:**
 - User authentication (JWT)
@@ -1167,11 +1158,11 @@ alembic downgrade -1
 - Basic Dash UI (Tabs 1-3)
 
 **Success Criteria:**
-- User can create period, add income/expenses, enter balances
-- Reconciliation difference calculated correctly
-- All tests pass
+- User can create period, add income/expenses, enter balances ✅
+- Reconciliation difference calculated correctly ✅
+- All tests pass ✅
 
-### Phase 2: Advanced Features (Weeks 3-4)
+### Phase 2: Advanced Features ✅ COMPLETE
 
 **Features:**
 - Suspended transactions (all 3 actions)
@@ -1188,10 +1179,10 @@ alembic downgrade -1
 - Reconciliation UI (Tab 8)
 
 **Success Criteria:**
-- Full workflow testable end-to-end
-- All business logic validated with tests
+- Full workflow testable end-to-end ✅
+- All business logic validated with tests ✅
 
-### Phase 3: Polish & Deployment (Weeks 5-7)
+### Phase 3: Polish & Deployment ✅ COMPLETE
 
 **Features:**
 - Dashboards and trends (Tab 9 - static charts)
@@ -1388,18 +1379,22 @@ alembic downgrade -1
 
 | Category | Endpoints |
 |----------|-----------|
-| Authentication | POST `/register`, `/login`, `/refresh-token` |
-| Periods | GET, POST, PUT `/periods`, POST `/periods/{id}/finalize` |
-| Accounts | GET, POST, PUT, DELETE `/accounts` |
-| Income | GET, POST, PUT, DELETE `/income` |
-| Expenses | GET, POST, PUT, DELETE `/expenses` |
-| Categories | GET, POST, PUT, DELETE `/categories` |
-| Suspended | GET, POST `/suspended`, POST `/suspended/{id}/settle`, `/suspended/{id}/convert-to-expense` |
-| Installments | GET, POST `/installments`, POST `/installments/{id}/payment` |
-| Conversions | POST, GET `/conversions` |
-| Investments | GET, POST `/investments/account`, POST `/investments/transfer` |
-| Reconciliation | GET `/reconciliation/period/{id}/calculate`, POST `/reconciliation/period/{id}/finalize` |
-| Templates | GET, POST, PUT, DELETE `/templates` |
+| Authentication | POST `/auth/register`, `/auth/login`, `/auth/refresh-token`, GET `/auth/setup-status` |
+| Periods | GET, POST `/periods/`, GET, DELETE `/periods/{id}`, PATCH `/periods/{id}/finalize` |
+| Accounts | GET, POST `/accounts/`, GET, PUT, DELETE `/accounts/{id}` |
+| Income | GET, POST `/periods/{id}/incomes`, PATCH `/incomes/{id}`, DELETE `/incomes/{id}` |
+| Expenses | GET, POST `/periods/{id}/expenses`, PATCH `/expenses/{id}`, DELETE `/expenses/{id}` |
+| Categories | GET, POST `/expense-categories/`, PUT, DELETE `/expense-categories/{id}` |
+| Suspended | GET, POST `/suspended-expenses/`, PATCH `/suspended-expenses/{id}/settle`, PATCH `/suspended-expenses/{id}/convert-to-expense` |
+| Installments | GET, POST `/installments/`, POST `/installments/{id}/payments` |
+| Conversions | POST, GET `/currency-conversions/` |
+| Investments | GET, POST `/investments/accounts`, POST `/investments/transfers` |
+| Reconciliation | GET `/periods/{id}/reconciliation`, PATCH `/periods/{id}/finalize`, GET `/periods/{id}/tax-benefits`, POST `/periods/{id}/quick-balance` |
+| Templates | GET, POST `/templates/from-period`, POST `/templates/{id}/apply`, PATCH, DELETE `/templates/{id}` |
+| Settings | GET, PUT `/settings/` |
+| Export | GET `/export/period/{id}/csv`, GET `/export/annual/csv`, GET `/export/backup`, POST `/export/import` |
+| Analytics | GET `/analytics/summary`, GET `/analytics/advanced` |
+| System | GET `/system/health`, GET `/system/version` |
 
 ### Appendix D: Environment Variables
 
@@ -1415,11 +1410,70 @@ AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 ```
 
+---
+
+## 16. Implementation Status
+
+### 16.1 Completed PRD Gaps (April 2026)
+
+All PRD gaps identified in the original gap analysis have been closed. The following features were built, tested, and merged into `develop` during the Phase 3 completion loop:
+
+| Feature | Branch | Tests Added | Status |
+|---------|--------|-------------|--------|
+| Data Export/Import | `feature/data-export` | 12 | ✅ Merged |
+| Initial Setup Wizard | `feature/setup-wizard` | 8 | ✅ Merged |
+| Auto-Save Logic | `feature/auto-save` | 6 | ✅ Merged |
+| Help/Tooltip System | `feature/help-tooltips` | 4 | ✅ Merged |
+| Advanced Analytics | `feature/analytics` | 9 | ✅ Merged |
+| Tax Benefits (B2B) | `feature/tax-benefits` | 13 | ✅ Merged |
+| Reconciliation UI Polish | `feature/recon-ui-polish` | 6 | ✅ Merged |
+| Template UI (period creation) | `feature/template-ui` | 4 | ✅ Merged |
+
+**Total test count progression**: 87 → 141 → 147 → 151
+
+### 16.2 New API Surface (Phase 3)
+
+These endpoints were added during Phase 3 and are not present in the original PRD:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/setup-status` | GET | Whether user has completed initial setup |
+| `/settings/` | GET | Retrieve user settings (tax system, default currency) |
+| `/settings/` | PUT | Upsert user settings |
+| `/periods/{id}/tax-benefits` | GET | B2B tax benefit calculation (204 if not applicable) |
+| `/periods/{id}/quick-balance` | POST | Auto-create Untracked Expense to close reconciliation gap |
+| `/export/backup` | GET | Full JSON backup of all user data |
+| `/export/import` | POST | Restore from JSON backup with UUID remapping |
+| `/export/period/{id}/csv` | GET | CSV export for single period |
+| `/export/annual/csv` | GET | CSV export for calendar year |
+| `/analytics/summary` | GET | Period-over-period summary stats |
+| `/analytics/advanced` | GET | Multi-period trend analysis with insights |
+
+### 16.3 Frontend Additions (Phase 3)
+
+- **Setup Wizard** (`/setup`): Multi-step onboarding flow (currency → categories → income sources)
+- **Template Preview**: Selecting a template in period creation shows income/expense/category counts before applying
+- **Finalized Period Locking**: Income and expense edit forms show "FINALIZED — read-only" banner; create/edit/delete API calls return 400 for locked periods
+- **Reconciliation Diff Explanation**: Per-currency cards show human-readable explanation of any balance gap
+- **Quick-Balance Button**: One-click auto-creation of an Untracked Expense to close non-zero reconciliation gap
+- **Tax Benefits Panel**: Shows taxable income, deductible expenses, estimated tax liability, and per-item deduction breakdown
+- **Auto-Save Indicators**: `dcc.Interval` polling + dirty-state detection on data-entry tabs with visual "Saving…" badge
+- **Tooltip System**: `dbc.Tooltip` on all complex form fields (amount, currency, tax fields)
+- **Export/Import UI**: Download buttons for CSV and JSON backup; upload/import with progress feedback
+
+### 16.4 Architecture Notes
+
+- **UserSettings**: True upsert model — `PUT /settings/` creates a new row if none exists (requires `default_currency_id` on first call)
+- **Template application**: Validates target period ownership before inserting any data to prevent FK constraint violations
+- **Quick-balance**: Finds or creates the "Untracked Expenses" system category inline; returns 400 if difference ≤ 0
+- **Tax benefits**: Returns `204 No Content` when user's tax system is `NONE`; frontend hides the panel when response is empty
+- **Export backup**: Exports all 14 entity types; import uses `uuid_map` for FK remapping, skip-on-natural-key for currencies/categories/periods
+
 ***
 
 **END OF PRD.md**
 
-**Document Status**: ✅ Complete and Approved  
-**Version**: 1.0  
-**Last Updated**: November 9, 2025  
+**Document Status**: ✅ Phase 1–3 Complete  
+**Version**: 2.0  
+**Last Updated**: April 3, 2026  
 **Next Document**: `DATABASE_SCHEMA.md`

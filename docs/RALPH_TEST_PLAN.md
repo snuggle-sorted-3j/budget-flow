@@ -1,3 +1,5 @@
+> **OBSOLETE** — Tool-specific plan from February 2026; all tasks complete. Current test count: 151. See `TESTING.md` or run `pytest backend/tests/ -v`.
+
 # RALPH_TEST_PLAN.md
 
 > **Project**: BudgetFlow Testing Implementation
