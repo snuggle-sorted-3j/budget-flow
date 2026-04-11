@@ -1,6 +1,29 @@
 
 ---
 
+## ⚠️ MANDATORY: Development Guide
+
+**Before writing, modifying, or deleting ANY code, you MUST read and follow `docs/LLM_DEVELOPMENT_GUIDE.md`.**
+
+That document contains:
+- The exact patterns for models, schemas, CRUD, endpoints, and tests used in this project
+- Mandatory test coverage requirements (line, branch, and mutation testing)
+- Authorization patterns (404/400/403/401) with copy-paste templates
+- Common pitfalls (Decimal vs float, multi-tenant isolation, period finalization)
+- Pre-commit validation checklist
+
+**Every new feature MUST include tests.** Minimum: 1 happy path + 1 not-found (404) + 1 unauthorized (401) = 3 tests per endpoint. Full test matrix is in the guide.
+
+**Every change MUST pass:** `docker exec budget-flow-backend python -m pytest tests/ -v --tb=short`
+
+**Current quality baseline (do not let these drop):**
+- 481 tests, 98% line coverage, 97% branch coverage
+- 77.2% mutation kill rate (analytics), 92.3% (reconciliation)
+
+For test strategy overview, see `docs/TEST_STRATEGY.md`.
+
+---
+
 # Cursor AI Rules for BudgetFlow
 
 This file provides context and guidelines for Cursor AI when working on the BudgetFlow project.
