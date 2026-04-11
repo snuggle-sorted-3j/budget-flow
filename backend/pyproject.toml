@@ -24,7 +24,16 @@ plugins = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "persistence: commits real data to verify survival across reconnection (requires live DB)",
+    "backup: invokes shell backup/restore scripts via subprocess (requires pg_dump in PATH)",
+]
 
 [tool.bandit]
 skips = ["B101"]
+
+[tool.mutmut]
+paths_to_mutate = "app/services/reconciliation_service.py"
+runner = "python -m pytest tests/unit/test_reconciliation_service.py tests/unit/test_tax_benefits.py tests/integration/test_reconciliation.py -x -q --tb=no"
+
 
