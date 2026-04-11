@@ -1,18 +1,15 @@
 """Onboarding wizard callbacks for BudgetFlow first-time setup."""
 import json
 
-from dash import Input, Output, State, callback_context, no_update
+import dash_bootstrap_components as dbc
+from dash import Input, Output, State, callback_context, html, no_update
 from dash.exceptions import PreventUpdate
 
-from components.onboarding_wizard import (
-    ONBOARDING_STEPS,
-    TOTAL_STEPS,
-    create_step_panel,
-)
+from components.onboarding_wizard import ONBOARDING_STEPS, TOTAL_STEPS
 
 
 # ---------------------------------------------------------------------------
-# Helper
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _triggered_id() -> str | None:
@@ -20,6 +17,63 @@ def _triggered_id() -> str | None:
     if not ctx.triggered:
         return None
     return ctx.triggered[0]["prop_id"].split(".")[0]
+
+
+def _dots(current_step: int) -> list:
+    """Render progress dot divs."""
+    dots = []
+    for s in ONBOARDING_STEPS:
+        if s["num"] < current_step:
+            cls = "onboarding-dot done"
+        elif s["num"] == current_step:
+            cls = "onboarding-dot active"
+        else:
+            cls = "onboarding-dot"
+        dots.append(html.Div(className=cls))
+    return dots
+
+
+def _panel_body(step: dict, on_correct_page: bool) -> list:
+    """Build the body content for a given step."""
+    if not on_correct_page:
+        return [
+            html.P(step["description"], className="description"),
+            html.Div(
+                [
+                    html.I(className="bi bi-arrow-right-circle-fill me-2"),
+                    html.Span(
+                        f"Navigate to the {step['title']} page using the sidebar — "
+                        "the guide will continue automatically."
+                    ),
+                ],
+                className="onboarding-navigate-hint",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-arrow-right me-1"), f" {step['nav_label']}"],
+                href=step["path"],
+                color="primary",
+                size="sm",
+                className="w-100",
+            ),
+        ]
+    return [
+        html.P(step["description"], className="description"),
+        html.Div(
+            [
+                html.I(className="bi bi-pencil-square me-2"),
+                html.Span(step["instruction"]),
+            ],
+            className="instruction-box d-flex align-items-start",
+        ),
+        html.Small(
+            [
+                html.I(className="bi bi-arrow-up me-1"),
+                "The highlighted fields above show what to fill in",
+            ],
+            className="text-muted d-block mt-1",
+            style={"fontSize": "0.78rem"},
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +84,7 @@ def register_onboarding_callbacks(app) -> None:
     """Register all onboarding wizard callbacks on the Dash app."""
 
     # ------------------------------------------------------------------
-    # 1. Show welcome modal when a new user first lands on the dashboard
+    # 1. Welcome modal open/close
     # ------------------------------------------------------------------
     @app.callback(
         Output("onboarding-welcome-modal", "is_open"),
@@ -42,28 +96,23 @@ def register_onboarding_callbacks(app) -> None:
         ],
         prevent_initial_call=False,
     )
-    def control_welcome_modal(state, pathname, start_clicks, skip_all_clicks):
+    def control_welcome_modal(state, pathname, _start, _skip_all):
         triggered = _triggered_id()
 
-        # Close if user clicked Start or Skip All
         if triggered in ("onboarding-start-btn", "onboarding-skip-all-btn"):
             return False
 
-        # Only show on dashboard pages
         if not pathname or not pathname.startswith("/dashboard"):
             return False
 
-        if state is None:
+        if not state:
             return False
 
-        # Show only when not completed and step == 0 (never started)
-        if not state.get("completed", False) and state.get("step", 0) == 0:
-            return True
-
-        return False
+        # Show only when tour hasn't been started yet (step == 0, not completed)
+        return not state.get("completed", False) and state.get("step", 0) == 0
 
     # ------------------------------------------------------------------
-    # 2. State machine — advance, skip, finish, dismiss, or restart
+    # 2. State machine — advance / skip / finish / dismiss / restart
     # ------------------------------------------------------------------
     @app.callback(
         Output("onboarding-state", "data"),
@@ -80,7 +129,7 @@ def register_onboarding_callbacks(app) -> None:
         prevent_initial_call=True,
     )
     def update_onboarding_state(
-        start, skip_all, next_click, skip, finish, dismiss, restart, state
+        _start, _skip_all, _next, _skip, _finish, _dismiss, _restart, state
     ):
         triggered = _triggered_id()
         if triggered is None:
@@ -89,26 +138,19 @@ def register_onboarding_callbacks(app) -> None:
         if state is None:
             state = {"completed": False, "step": 0}
 
-        current_step = state.get("step", 0)
+        step = state.get("step", 0)
 
         if triggered == "onboarding-start-btn":
-            # Begin tour at step 1
             return {"completed": False, "step": 1}
 
-        if triggered == "onboarding-skip-all-btn":
-            # User wants to skip everything
-            return {"completed": True, "step": 0}
-
-        if triggered == "onboarding-dismiss-btn":
-            # Dismiss mid-tour → mark completed so it won't re-appear
-            return {"completed": True, "step": current_step}
+        if triggered in ("onboarding-skip-all-btn", "onboarding-dismiss-btn"):
+            return {"completed": True, "step": step}
 
         if triggered == "onboarding-restart-btn":
-            # Re-launch tour from step 1
             return {"completed": False, "step": 1}
 
         if triggered in ("onboarding-next-btn", "onboarding-skip-btn"):
-            next_step = current_step + 1
+            next_step = step + 1
             if next_step > TOTAL_STEPS:
                 return {"completed": True, "step": 0}
             return {"completed": False, "step": next_step}
@@ -119,75 +161,98 @@ def register_onboarding_callbacks(app) -> None:
         raise PreventUpdate
 
     # ------------------------------------------------------------------
-    # 3. Render the floating step panel + toggle backdrop
+    # 3. Update panel content + visibility (no component re-creation)
     # ------------------------------------------------------------------
     @app.callback(
         [
-            Output("onboarding-panel-container", "children"),
+            Output("onboarding-panel", "style"),
             Output("onboarding-backdrop", "className"),
+            Output("onboarding-step-badge", "children"),
+            Output("onboarding-panel-title", "children"),
+            Output("onboarding-panel-subtitle", "children"),
+            Output("onboarding-panel-body", "children"),
+            Output("onboarding-dots-container", "children"),
+            Output("onboarding-skip-btn", "style"),
+            Output("onboarding-next-btn", "style"),
+            Output("onboarding-finish-btn", "style"),
         ],
         [
             Input("onboarding-state", "data"),
             Input("url", "pathname"),
         ],
     )
-    def render_wizard_panel(state, pathname):
-        if state is None or state.get("completed", False):
-            return None, "d-none"
+    def update_wizard_panel(state, pathname):
+        hidden_panel = {"display": "none"}
+        backdrop_hidden = "d-none"
+        empty = [None] * 8  # remaining outputs when hidden
 
-        step = state.get("step", 0)
-        if step < 1 or step > TOTAL_STEPS:
-            return None, "d-none"
+        if not state or state.get("completed", False):
+            return hidden_panel, backdrop_hidden, *empty
 
-        panel = create_step_panel(step, pathname or "")
-        return panel, "onboarding-backdrop"
+        step_num = state.get("step", 0)
+        if step_num < 1 or step_num > TOTAL_STEPS:
+            return hidden_panel, backdrop_hidden, *empty
+
+        step = next(s for s in ONBOARDING_STEPS if s["num"] == step_num)
+        on_correct_page = pathname == step["path"]
+        is_last = step_num == TOTAL_STEPS
+        is_optional = not step["required"]
+
+        badge_text = f"Step {step_num} of {TOTAL_STEPS}"
+        dots = _dots(step_num)
+        body = _panel_body(step, on_correct_page)
+
+        # Button visibility
+        skip_style = {} if is_optional else {"display": "none"}
+        next_style = {"display": "none"} if is_last else {}
+        finish_style = {} if is_last else {"display": "none"}
+
+        return (
+            {"display": "block"},       # panel visible
+            "onboarding-backdrop",      # backdrop visible
+            badge_text,
+            step["title"],
+            step["subtitle"],
+            body,
+            dots,
+            skip_style,
+            next_style,
+            finish_style,
+        )
 
     # ------------------------------------------------------------------
-    # 4. Clientside callback — apply/remove highlight class on DOM nodes
+    # 4. Clientside: apply/remove onboarding-highlight CSS class on fields
     # ------------------------------------------------------------------
-    # Build a JS map from step number → list of element IDs to highlight
-    _step_field_map = {
-        str(s["num"]): s["highlight_ids"] for s in ONBOARDING_STEPS
-    }
-    _step_field_map_json = json.dumps(_step_field_map)
+    _step_field_map = {str(s["num"]): s["highlight_ids"] for s in ONBOARDING_STEPS}
+    _step_path_map = {str(s["num"]): s["path"] for s in ONBOARDING_STEPS}
 
     app.clientside_callback(
         f"""
         function(state, pathname) {{
-            var stepMap = {_step_field_map_json};
+            var stepMap  = {json.dumps(_step_field_map)};
+            var pathMap  = {json.dumps(_step_path_map)};
 
-            // Always clear existing highlights first
+            // Always clear previous highlights
             document.querySelectorAll('.onboarding-highlight').forEach(function(el) {{
                 el.classList.remove('onboarding-highlight');
             }});
 
-            if (!state || state.completed) {{
-                return null;
-            }}
+            if (!state || state.completed) return null;
 
-            var step = state.step;
-            if (!step || step < 1) {{
-                return null;
-            }}
+            var step = String(state.step);
+            if (!step || step === '0') return null;
 
-            var ids = stepMap[String(step)];
+            if (pathname !== pathMap[step]) return null;
+
+            var ids = stepMap[step];
             if (!ids) return null;
 
-            // Find the expected path for this step
-            var stepPaths = {json.dumps({str(s["num"]): s["path"] for s in ONBOARDING_STEPS})};
-            var expectedPath = stepPaths[String(step)];
-            if (pathname !== expectedPath) {{
-                return null;  // Wrong page — no highlights
-            }}
-
-            // Apply highlights after a small delay to let Dash finish rendering
             setTimeout(function() {{
-                ids.forEach(function(id) {{
+                ids.forEach(function(id, idx) {{
                     var el = document.getElementById(id);
                     if (el) {{
                         el.classList.add('onboarding-highlight');
-                        // Scroll the first highlighted element into view
-                        if (el === document.getElementById(ids[0])) {{
+                        if (idx === 0) {{
                             el.scrollIntoView({{behavior: 'smooth', block: 'center'}});
                         }}
                     }}

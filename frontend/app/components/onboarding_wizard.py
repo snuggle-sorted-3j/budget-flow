@@ -4,7 +4,7 @@ from dash import html, dcc
 
 
 # ---------------------------------------------------------------------------
-# Step definitions – the single source of truth for the wizard flow
+# Step definitions – single source of truth for the wizard flow
 # ---------------------------------------------------------------------------
 
 ONBOARDING_STEPS = [
@@ -34,7 +34,7 @@ ONBOARDING_STEPS = [
     {
         "num": 2,
         "title": "Set Up Currencies",
-        "subtitle": "Only for crypto or exotic currencies",
+        "subtitle": "Only needed for crypto or exotic currencies",
         "description": (
             "Common world currencies (USD, EUR, GBP, PLN, …) are already built in. "
             "Only add a custom currency here if you need crypto or an unlisted one."
@@ -89,11 +89,11 @@ TOTAL_STEPS = len(ONBOARDING_STEPS)
 
 
 # ---------------------------------------------------------------------------
-# Welcome modal
+# Welcome modal (IDs are permanent — modal is always in layout)
 # ---------------------------------------------------------------------------
 
 def create_welcome_modal() -> dbc.Modal:
-    """Return the full-screen welcome modal shown before the tour starts."""
+    """Return the welcome modal shown before the tour starts."""
     steps_ui = []
     for step in ONBOARDING_STEPS:
         icon_cls = "required" if step["required"] else "optional"
@@ -163,12 +163,10 @@ def create_welcome_modal() -> dbc.Modal:
                 className="border-0 pb-0",
             ),
             dbc.ModalBody(
-                [
-                    html.Div(
-                        steps_ui,
-                        style={"borderTop": "1px solid #e2e8f0", "paddingTop": "12px"},
-                    )
-                ],
+                html.Div(
+                    steps_ui,
+                    style={"borderTop": "1px solid #e2e8f0", "paddingTop": "12px"},
+                ),
                 className="pt-2",
             ),
             dbc.ModalFooter(
@@ -183,10 +181,7 @@ def create_welcome_modal() -> dbc.Modal:
                         n_clicks=0,
                     ),
                     dbc.Button(
-                        [
-                            html.I(className="bi bi-play-fill me-2"),
-                            "Start Tour",
-                        ],
+                        [html.I(className="bi bi-play-fill me-2"), "Start Tour"],
                         id="onboarding-start-btn",
                         color="primary",
                         n_clicks=0,
@@ -205,172 +200,102 @@ def create_welcome_modal() -> dbc.Modal:
 
 
 # ---------------------------------------------------------------------------
-# Step panel (floating, bottom-right)
+# Persistent step panel — ALL IDs live here permanently.
+# The callback updates content and shows/hides the panel via style.
 # ---------------------------------------------------------------------------
 
-def _progress_dots(current_step: int) -> html.Div:
-    """Render step progress indicator dots."""
-    dots = []
-    for s in ONBOARDING_STEPS:
-        if s["num"] < current_step:
-            cls = "onboarding-dot done"
-        elif s["num"] == current_step:
-            cls = "onboarding-dot active"
-        else:
-            cls = "onboarding-dot"
-        dots.append(html.Div(className=cls))
-    return html.Div(dots, className="onboarding-dots")
-
-
-def create_step_panel(step_num: int, current_pathname: str) -> html.Div:
+def create_persistent_step_panel() -> html.Div:
     """
-    Build the floating step-guide panel for a given step number.
-
-    Args:
-        step_num: 1-based step index.
-        current_pathname: The current URL pathname (from dcc.Location).
+    Return the floating step-guide panel with ALL button IDs baked in.
+    Hidden by default (style display:none). Callbacks update its content
+    and toggle visibility — they never re-create the element.
     """
-    step = next((s for s in ONBOARDING_STEPS if s["num"] == step_num), None)
-    if step is None:
-        return html.Div()
-
-    on_correct_page = current_pathname == step["path"]
-    is_last = step_num == TOTAL_STEPS
-    is_optional = not step["required"]
-
-    # Navigate hint if user is on wrong page
-    if not on_correct_page:
-        content_body = html.Div(
-            [
-                html.P(step["description"], className="description"),
-                html.Div(
-                    [
-                        html.I(className="bi bi-arrow-right-circle-fill"),
-                        html.Span(
-                            f" Navigate to the {step['title']} page using the sidebar, "
-                            "then come back here — the guide will continue automatically.",
-                        ),
-                    ],
-                    className="onboarding-navigate-hint",
-                ),
-                dbc.Button(
-                    [html.I(className=f"bi bi-arrow-right me-1"), f" {step['nav_label']}"],
-                    href=step["path"],
-                    color="primary",
-                    size="sm",
-                    className="w-100",
-                    external_link=False,
-                ),
-            ],
-            className="onboarding-panel-body",
-        )
-    else:
-        content_body = html.Div(
-            [
-                html.P(step["description"], className="description"),
-                html.Div(
-                    [
-                        html.I(className="bi bi-pencil-square"),
-                        html.Span(f" {step['instruction']}"),
-                    ],
-                    className="instruction-box d-flex align-items-start",
-                ),
-                html.Small(
-                    [
-                        html.I(className="bi bi-arrow-up me-1"),
-                        "The highlighted fields above show what to fill in",
-                    ],
-                    className="text-muted d-block mb-1",
-                    style={"fontSize": "0.78rem"},
-                ),
-            ],
-            className="onboarding-panel-body",
-        )
-
-    # Footer buttons
-    footer_left = _progress_dots(step_num)
-
-    skip_btn = (
-        dbc.Button(
-            "Skip",
-            id="onboarding-skip-btn",
-            color="secondary",
-            outline=True,
-            size="sm",
-            n_clicks=0,
-        )
-        if is_optional
-        else html.Span()
+    header = html.Div(
+        [
+            html.Div(
+                [
+                    html.Span(id="onboarding-step-badge", className="step-badge"),
+                    # Dismiss × button — always present
+                    dbc.Button(
+                        html.I(className="bi bi-x-lg"),
+                        id="onboarding-dismiss-btn",
+                        color="link",
+                        size="sm",
+                        n_clicks=0,
+                        style={
+                            "color": "rgba(255,255,255,0.7)",
+                            "padding": "0",
+                            "marginLeft": "auto",
+                        },
+                        title="Exit tour",
+                    ),
+                ],
+                className="d-flex align-items-center",
+            ),
+            html.H5(id="onboarding-panel-title", className="mb-0 mt-1"),
+            html.Div(id="onboarding-panel-subtitle", className="subtitle"),
+        ],
+        className="onboarding-panel-header",
     )
 
-    next_label = (
-        [html.I(className="bi bi-check-lg me-1"), "Finish Setup"]
-        if is_last
-        else [html.I(className="bi bi-arrow-right me-1"), "Done, Next Step"]
-    )
-    next_id = "onboarding-finish-btn" if is_last else "onboarding-next-btn"
+    body = html.Div(id="onboarding-panel-body", className="onboarding-panel-body")
 
     footer = html.Div(
         [
-            footer_left,
+            # Progress dots — updated by callback
+            html.Div(id="onboarding-dots-container", className="onboarding-dots"),
             html.Div(
-                [skip_btn, dbc.Button(next_label, id=next_id, color="primary", size="sm", n_clicks=0)],
+                [
+                    # Skip button — hidden for required steps
+                    dbc.Button(
+                        "Skip",
+                        id="onboarding-skip-btn",
+                        color="secondary",
+                        outline=True,
+                        size="sm",
+                        n_clicks=0,
+                        style={"display": "none"},
+                    ),
+                    # Next button — hidden on last step
+                    dbc.Button(
+                        [html.I(className="bi bi-arrow-right me-1"), "Done, Next Step"],
+                        id="onboarding-next-btn",
+                        color="primary",
+                        size="sm",
+                        n_clicks=0,
+                    ),
+                    # Finish button — hidden until last step
+                    dbc.Button(
+                        [html.I(className="bi bi-check-lg me-1"), "Finish Setup"],
+                        id="onboarding-finish-btn",
+                        color="success",
+                        size="sm",
+                        n_clicks=0,
+                        style={"display": "none"},
+                    ),
+                ],
                 className="d-flex gap-2",
             ),
         ],
         className="onboarding-panel-footer",
     )
 
-    # Dismiss (×) button in header
-    dismiss_btn = dbc.Button(
-        html.I(className="bi bi-x-lg"),
-        id="onboarding-dismiss-btn",
-        color="link",
-        size="sm",
-        n_clicks=0,
-        style={"color": "rgba(255,255,255,0.7)", "padding": "0", "marginLeft": "auto"},
-        title="Exit tour",
-    )
-
-    panel = html.Div(
-        html.Div(
-            [
-                # Header
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.Span(
-                                    f"Step {step_num} of {TOTAL_STEPS}",
-                                    className="step-badge",
-                                ),
-                                dismiss_btn,
-                            ],
-                            className="d-flex align-items-center",
-                        ),
-                        html.H5(step["title"]),
-                        html.Div(step["subtitle"], className="subtitle"),
-                    ],
-                    className="onboarding-panel-header",
-                ),
-                content_body,
-                footer,
-            ]
-        ),
+    return html.Div(
+        html.Div([header, body, footer]),
+        id="onboarding-panel",
         className="onboarding-panel",
+        style={"display": "none"},
     )
-
-    return panel
 
 
 # ---------------------------------------------------------------------------
-# Stores and containers injected into the dashboard layout
+# Elements injected once into the dashboard layout
 # ---------------------------------------------------------------------------
 
 def create_onboarding_layout_elements() -> list:
     """
-    Return the list of Dash components to inject into the dashboard layout.
-    Includes the persistent store, the welcome modal, backdrop, and panel container.
+    Return Dash components to inject into the dashboard layout once.
+    All interactive IDs are permanently present — nothing is created dynamically.
     """
     return [
         # Persists across browser sessions (localStorage)
@@ -379,12 +304,12 @@ def create_onboarding_layout_elements() -> list:
             storage_type="local",
             data={"completed": False, "step": 0},
         ),
-        # Dummy store used as output for the clientside highlight callback
+        # Dummy output for clientside highlight callback
         dcc.Store(id="onboarding-highlight-dummy", data=None),
         # Dark backdrop overlay
         html.Div(id="onboarding-backdrop", className="d-none"),
-        # Welcome modal
+        # Welcome modal (all IDs permanent)
         create_welcome_modal(),
-        # Floating step panel (rendered by callback)
-        html.Div(id="onboarding-panel-container"),
+        # Floating step panel (all button IDs permanent)
+        create_persistent_step_panel(),
     ]
