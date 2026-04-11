@@ -1,6 +1,8 @@
 import dash_bootstrap_components as dbc
 from dash import html, dcc
 
+from components.onboarding_wizard import create_onboarding_layout_elements
+
 
 def create_dashboard_layout(user_email: str = "User"):
     """Create the dashboard layout with a sleek fixed sidebar."""
@@ -141,6 +143,12 @@ def create_dashboard_layout(user_email: str = "User"):
                                 ),
                                 dbc.DropdownMenuItem(divider=True),
                                 dbc.DropdownMenuItem(
+                                    [html.I(className="bi bi-map me-2 text-primary"), "Setup Tour"],
+                                    id="onboarding-restart-btn",
+                                    n_clicks=0,
+                                ),
+                                dbc.DropdownMenuItem(divider=True),
+                                dbc.DropdownMenuItem(
                                     [html.I(className="bi bi-box-arrow-right me-2 text-danger"), "Sign Out"],
                                     id="logout-button",
                                     n_clicks=0,
@@ -175,4 +183,7 @@ def create_dashboard_layout(user_email: str = "User"):
         className="main-content-wrapper"
     )
 
-    return html.Div([sidebar, header, content], className="dashboard-container")
+    return html.Div(
+        [sidebar, header, content, *create_onboarding_layout_elements()],
+        className="dashboard-container",
+    )
