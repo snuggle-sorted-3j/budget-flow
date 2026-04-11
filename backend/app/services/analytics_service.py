@@ -61,7 +61,7 @@ def get_spending_by_category(
     # Add percentages (note: only accurate if single currency, but requested)
     for cat in by_category:
         if total_expenses > 0:
-            cat["percentage"] = round(float(cat["total"] / total_expenses * 100), 1)
+            cat["percentage"] = round(float(Decimal(str(cat["total"])) / total_expenses * 100), 1)
         else:
             cat["percentage"] = 0
 
