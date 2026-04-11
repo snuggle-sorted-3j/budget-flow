@@ -28,7 +28,7 @@ def calculate_reconciliation(
     # 1. Get current period
     current_period = db.execute(
         select(CalculationPeriod).where(
-            CalculationPeriod.id == period_id, 
+            CalculationPeriod.id == period_id,
             CalculationPeriod.user_id == user_id
         )
     ).scalar_one_or_none()
