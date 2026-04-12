@@ -237,7 +237,7 @@ jobs:
 
       - name: Start services
         run: |
-          docker-compose up -d --build
+          docker compose up -d --build 2>&1 || docker-compose up -d --build
           sleep 45  # Wait for services to be fully ready
 
       - name: Wait for backend health check
@@ -253,7 +253,7 @@ jobs:
           curl -f http://localhost:8000/api/v1/system/health || exit 1
 
       - name: Check service status
-        run: docker-compose ps
+        run: docker compose ps 2>&1 || docker-compose ps
 
       - name: Install Playwright
         run: |
@@ -285,12 +285,12 @@ jobs:
       - name: Collect Docker logs on failure
         if: failure()
         run: |
-          docker-compose logs backend --tail=100
-          docker-compose logs frontend --tail=50
+          docker compose logs backend --tail=100 2>&1 || docker-compose logs backend --tail=100
+          docker compose logs frontend --tail=50 2>&1 || docker-compose logs frontend --tail=50
 
       - name: Stop services
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v 2>&1 || docker-compose down -v
 
   # ============================================
   # Code Quality Checks
