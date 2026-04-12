@@ -257,7 +257,7 @@ jobs:
 
       - name: Install Playwright
         run: |
-          pip install pytest-playwright pytest
+          pip install pytest-playwright pytest pytest-timeout
           playwright install chromium --with-deps
 
       - name: Run Core E2E Tests (Auth + Happy Path)
