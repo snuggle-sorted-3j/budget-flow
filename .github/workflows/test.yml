@@ -89,6 +89,50 @@ jobs:
           retention-days: 7
 
   # ============================================
+  # Frontend UI Tests (Dash + Selenium)
+  # ============================================
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    needs: test  # Only run if backend tests pass
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: 'frontend/requirements*.txt'
+
+      - name: Install system dependencies for Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+
+      - name: Install frontend dependencies
+        run: |
+          pip install --upgrade pip
+          pip install "dash[testing]" selenium webdriver-manager pytest pytest-mock
+          pip install plotly dash-bootstrap-components
+
+      - name: Run Frontend UI Tests
+        run: |
+          cd tests/frontend
+          pytest . -v --tb=short -m frontend --maxfail=5
+        continue-on-error: true
+
+      - name: Upload frontend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-results
+          path: tests/frontend/
+          retention-days: 7
+
+  # ============================================
   # Mutation Testing (reconciliation_service)
   # Runs on main/develop only to save CI time
   # ============================================

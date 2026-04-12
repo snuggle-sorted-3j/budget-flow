@@ -1,0 +1,6 @@
+# Frontend UI test dependencies (host machine, not in Docker)
+dash[testing]>=3.0.0
+selenium>=4.2.0
+webdriver-manager>=4.0.0
+pytest>=7.0.0
+pytest-mock>=3.10.0
